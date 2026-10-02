@@ -58,7 +58,15 @@ enum Demo {
         return backend
     }
 
-    static var isActive: Bool { setup != nil }
+    /// Once per launch; a share-card run opens nothing (it quits as soon as the PNG is written).
+    @MainActor static func openMainWindow(_ open: () -> Void) {
+        guard setup != nil, !mainOpened else { return }
+        mainOpened = true
+        open()
+        activateApp()
+    }
+
+    @MainActor private static var mainOpened = false
 
     private static var started = false
     @MainActor private static var windows: [NSWindow] = []
@@ -201,15 +209,13 @@ enum Demo {
     }
 }
 
-extension Scene {
-    /// A MenuBarExtra-first app presents no window at launch by itself (VERIFY: the first screens run had none within 30 s),
-    /// and every capture but the share card needs the main one. macOS 15 and later; the capture runners are on 26.
-    @SceneBuilder func demoPresented() -> some Scene {
-        if #available(macOS 15, *) {
-            defaultLaunchBehavior(Demo.isActive ? .presented : .automatic)
-        } else {
-            self
-        }
+/// A MenuBarExtra-first app presents no window at launch by itself (VERIFY: the first capture run had none within 30 s), and
+/// every capture but the share card needs the main one. Applied to the menu bar label, which is alive from launch.
+struct DemoLaunch: ViewModifier {
+    @Environment(\.openWindow) private var openWindow
+
+    func body(content: Content) -> some View {
+        content.onAppear { Demo.openMainWindow { openWindow(id: "main") } }
     }
 }
 #endif
