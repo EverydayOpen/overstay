@@ -52,12 +52,9 @@ enum Demo {
 
     /// Non-nil in demo mode: the scenario's backend. `running` and `hero` swap in a scripted stop (below).
     static let backend: Backend? = setup.map { demo in
-        var backend = DemoBackend.make(demo.scenario)
-        switch demo.screen {
-        case .running: backend.stop = { plan, _, progress in await Demo.script(plan, progress, seconds: 1, stopAt: 0.4) }
-        case .hero: backend.stop = { plan, _, progress in await Demo.script(plan, progress, seconds: 3) }
-        default: break
-        }
+        // `hero` takes the real demo stop, slowed to 3 s, so the rescan after it shows the leftovers gone. `running` hangs.
+        var backend = DemoBackend.make(demo.scenario, seconds: demo.screen == .hero ? 3 : 1.2)
+        if demo.screen == .running { backend.stop = { plan, _, progress in await Demo.script(plan, progress, seconds: 1, stopAt: 0.4) } }
         return backend
     }
 
