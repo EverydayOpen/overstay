@@ -9,11 +9,14 @@ struct GroupsView: View {
 
     var body: some View {
         NavigationSplitView {
-            sidebar.navigationSplitViewColumnWidth(min: 240, ideal: 280, max: 380)
+            sidebar.navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 400)
         } detail: {
-            detail.safeAreaInset(edge: .bottom, spacing: 0) {
+            // The bar sits under the content, not over it, so the last row is never cut by it. One room behind both.
+            VStack(spacing: 0) {
+                detail
                 if let scan = model.scan, !scan.isQuiet { StopBar(scan: scan) }
             }
+            .background(Room(strength: model.scan.map { $0.isQuiet } ?? true ? 0.5 : 1))
         }
     }
 
@@ -47,7 +50,6 @@ struct GroupsView: View {
         } else {
             ProgressView("Looking for leftovers…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Room(strength: 0.5))
         }
     }
 }
@@ -73,10 +75,11 @@ private struct SidebarRow: View {
             }
             GroupGlyph(symbol: group.agent.symbol)
             VStack(alignment: .leading, spacing: 3) {
+                // The counts are in the chips below, so the size alone shares the title's line and the title keeps its width.
                 HStack(alignment: .firstTextBaseline) {
                     Text(title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
                     Spacer(minLength: Space.xs)
-                    Text("\(hasGhosts ? group.ghostCount : group.maybeCount) · \(Format.bytes(hasGhosts ? group.ghostBytes : group.totalBytes))")
+                    Text(Format.bytes(hasGhosts ? group.ghostBytes : group.totalBytes))
                         .font(.system(size: 12, weight: .medium, design: .rounded)).monospacedDigit().foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -94,8 +97,9 @@ private struct SidebarRow: View {
         .padding(.vertical, 4)
     }
 
+    /// Browsers started by a tool have no working folder of their own: say so rather than "unknown".
     private var projectText: String {
-        group.project.map { Scrub.tilde($0.root, home: home) } ?? "Folder unknown"
+        group.project.map { Scrub.tilde($0.root, home: home) } ?? "No project folder"
     }
 
     private var checked: Binding<Bool> {
@@ -159,7 +163,6 @@ private struct Overview: View {
             .padding(Space.xl)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Room())
         .onAppear {
             withAnimation(Motion.spring(reduceMotion)) { barShown = true }
         }
@@ -280,7 +283,6 @@ private struct QuietState: View {
         .multilineTextAlignment(.center)
         .padding(.horizontal, Space.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Room(strength: 0.5))
         .accessibilityElement(children: .contain)
     }
 }
@@ -326,7 +328,9 @@ private struct StopBar: View {
         .padding(.vertical, Space.xs)
         .padding(.horizontal, Space.m)
         .barSurface()
-        .padding([.horizontal, .bottom], Space.l)
+        .padding(.horizontal, Space.l)
+        .padding(.top, Space.xs)
+        .padding(.bottom, Space.l)
     }
 }
 
@@ -383,6 +387,14 @@ struct PlanLines: View {
         return "Left out: \(shown)\(more)."
     }
 
+    /// A browser's helpers share one name: "Google Chrome for Testing Helper (GPU)" and its siblings read "Chrome for Testing
+    /// helpers", so a line names kinds of process, not every helper.
+    static func kind(_ name: String) -> String {
+        let base = name.hasPrefix("Google ") ? String(name.dropFirst("Google ".count)) : name
+        guard let helper = base.range(of: " Helper") else { return base }
+        return String(base[..<helper.lowerBound]) + " helpers"
+    }
+
     /// One line per group, keyed by the group's id (two projects can share an agent and a folder name); only a pid that
     /// is in no listed group falls back to agent and folder name.
     private var lines: [Line] {
@@ -398,7 +410,7 @@ struct PlanLines: View {
             guard let ts = buckets[key], let first = ts.first else { return nil }
             let project = model.group(containing: first.identity.pid)?.project
             let place = project.map { Scrub.tilde($0.root, home: scan?.home ?? "") } ?? first.projectName
-            let names = Dictionary(grouping: ts, by: \.name).map { (name: $0.key, count: $0.value.count) }
+            let names = Dictionary(grouping: ts, by: { Self.kind($0.name) }).map { (name: $0.key, count: $0.value.count) }
                 .sorted { $0.count != $1.count ? $0.count > $1.count : $0.name < $1.name }
             let shown = names.prefix(3).map { "\($0.name) ×\($0.count)" }.joined(separator: ", ")
             let more = names.count > 3 ? ", and \(names.count - 3) more kinds" : ""

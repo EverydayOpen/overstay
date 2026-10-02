@@ -11,6 +11,8 @@ import SwiftUI
 ///     -demo <scenario>          or --demo, or OVERSTAY_DEMO=<scenario>; each screen has a default scenario
 ///     -demoAppearance light|dark
 ///     -demoShareOut <png path>  renders the share card with Export and quits (screen: share)
+///     -demoScroll <0...1>       scrolls the main window's widest scrollable area to that fraction (the detail column, the
+///                               activity list: what is below the fold), after the entrance animations
 ///
 /// Names ignore case and hyphens. An unknown name stops the app, so a typo in the workflow fails its capture.
 /// AppModel calls `Demo.backend` when it picks its backend and `Demo.start(self)` at the end of init.
@@ -32,7 +34,8 @@ enum Demo {
         case activity, preferences
         /// The share card at 2x in its own window.
         case share
-        /// Idle, then Stop, then a 3 s run, then the result: the README hero's frames (screens.yml records it).
+        /// Idle, then Stop with no confirm sheet and no Stopping sheet over the slabs, a 4 s run, then the result: the
+        /// README hero's frames (screens.yml records it).
         case hero
     }
 
@@ -52,8 +55,9 @@ enum Demo {
 
     /// Non-nil in demo mode: the scenario's backend. `running` and `hero` swap in a scripted stop (below).
     static let backend: Backend? = setup.map { demo in
-        // `hero` takes the real demo stop, slowed to 3 s, so the rescan after it shows the leftovers gone. `running` hangs.
-        var backend = DemoBackend.make(demo.scenario, seconds: demo.screen == .hero ? 3 : 1.2)
+        // `hero` takes the real demo stop, slowed to 4 s, so the rescan after it shows the leftovers gone. The plan is
+        // leaf-first, so the slabs settle in the last third of the run. `running` hangs.
+        var backend = DemoBackend.make(demo.scenario, seconds: demo.screen == .hero ? 4 : 1.2)
         if demo.screen == .running { backend.stop = { plan, _, progress in await Demo.script(plan, progress, seconds: 1, stopAt: 0.4) } }
         return backend
     }
@@ -80,6 +84,10 @@ enum Demo {
         }
         model.prefs.hasSeenFirstRun = demo.screen != .firstRun
         Task { await run(demo.screen, model) }
+        if let fraction = argument("demoScroll").flatMap(Double.init) {
+            // Three passes: a lazy List or ScrollView only knows its full height after the first rows have been measured.
+            Task { for wait in [3.0, 1.0, 1.0] { try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000)); scroll(to: fraction) } }
+        }
     }
 
     @MainActor private static func run(_ screen: Screen, _ model: AppModel) async {
@@ -113,11 +121,52 @@ enum Demo {
             model.dismissResult()
             present(ShareCardView(card: card, width: 2 * ShareCardView.size.width))
         case .hero:
+            while !mainOpened { try? await Task.sleep(nanoseconds: 50_000_000) }   // the recording starts when the window is up
             try? await Task.sleep(nanoseconds: 2_500_000_000)   // idle frames first
+            // The slabs are the shot, and RootView hangs a sheet over them for the confirm step and again while the stop
+            // runs. Plan and confirm in one turn, so the confirm sheet is never drawn, and keep the Stopping sheet invisible
+            // until the result (which is wanted at the end). The window beneath is the real one: its controls read as
+            // disabled and its title bar as inactive, as they do during a real stop.
             model.requestStop(groupIDs: ids)
-            try? await Task.sleep(nanoseconds: 1_200_000_000)   // the confirm sheet
+            let hiding = Task { await hideSheets(while: model) }
             await model.confirmStop()
+            await hiding.value
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            for sheet in NSApp.windows.compactMap(\.attachedSheet) { sheet.alphaValue = 1 }   // in case the result reused the window
         }
+    }
+
+    /// Sets any sheet of the app's windows to fully transparent every 20 ms while a stop is confirmed or running.
+    /// VERIFY on a Mac that `alphaValue` hides a SwiftUI sheet window and that the next sheet comes up opaque.
+    @MainActor private static func hideSheets(while model: AppModel) async {
+        func stopping() -> Bool {
+            switch model.phase {
+            case .confirming, .running: return true
+            default: return false
+            }
+        }
+        while stopping() {
+            for sheet in NSApp.windows.compactMap(\.attachedSheet) { sheet.alphaValue = 0 }
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+    }
+
+    /// The main window's widest scrollable area (the sidebar is narrower), scrolled to `fraction` of its travel from the top.
+    /// VERIFY on a Mac that SwiftUI's ScrollView and List are NSScrollViews in the main window.
+    @MainActor private static func scroll(to fraction: Double) {
+        guard let root = NSApp.windows.first(where: { $0.title == "Overstay" })?.contentView else { return }
+        var best: NSScrollView?
+        func find(_ view: NSView) {
+            if let scroller = view as? NSScrollView, let document = scroller.documentView,
+               document.frame.height > scroller.contentView.bounds.height + 1,
+               scroller.frame.width > (best?.frame.width ?? 0) { best = scroller }
+            view.subviews.forEach(find)
+        }
+        find(root)
+        guard let scroller = best, let document = scroller.documentView else { return }
+        let travel = document.frame.height - scroller.contentView.bounds.height
+        scroller.contentView.scroll(to: NSPoint(x: 0, y: travel * (document.isFlipped ? fraction : 1 - fraction)))
+        scroller.reflectScrolledClipView(scroller.contentView)
     }
 
     /// A stop that reports every target as stopped, evenly over `seconds`, and with `stopAt` below 1 hangs after that

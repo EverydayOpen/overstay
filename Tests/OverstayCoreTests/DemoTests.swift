@@ -149,16 +149,40 @@ final class DemoTests: XCTestCase {
         XCTAssertEqual(again.heldBytes, 0)
     }
 
-    func testRefusedAnswersEPERMForTheCodexGroup() async {
+    func testRefusedAnswersEPERMForExactlyTwoCodexServers() async {
         let b = backend(.refused)
         let (_, plan) = await plan(b)
         let outcome = await b.stop(plan, prefs) { _ in }
         let refused = outcome.results.filter { $0.status == .refused }
-        XCTAssertEqual(refused.count, 40)
+        XCTAssertEqual(refused.count, 2, "the edge screen reads \"stop 2 processes\"")
         XCTAssertTrue(refused.allSatisfy { $0.errno == 1 && $0.target.agent == .codex && $0.target.projectName == "bar" })
-        XCTAssertEqual(outcome.stoppedCount, 143)
+        XCTAssertEqual(Set(refused.map(\.target.identity.pid)), Set(DemoScenarios.refusedPids))
+        XCTAssertEqual(outcome.stoppedCount, 181)
         let raw = await b.scan()
-        XCTAssertEqual(Scan.analyze(raw, prefs: prefs, now: raw.scannedAt).ghostCount, 40, "refused processes keep running")
+        XCTAssertEqual(Scan.analyze(raw, prefs: prefs, now: raw.scannedAt).ghostCount, 2, "refused processes keep running")
+    }
+
+    func testThePinnedPidsAreUniqueAndLeaveEveryGroupAsPlanned() {
+        for s in DemoScenario.allCases {
+            let pids = DemoScenarios.rawScan(s, now: now).processes.map(\.pid)
+            XCTAssertEqual(pids.count, Set(pids).count, s.rawValue)
+        }
+        let bar = ghostGroups(analyze(.refused)).first { $0.project?.name == "bar" }
+        XCTAssertEqual(bar?.ghostCount, 40)
+        XCTAssertTrue(DemoScenarios.refusedPids.allSatisfy { pid in bar?.ghosts.contains { $0.process.pid == pid } ?? false })
+    }
+
+    func testHistorySpansDaysAndTimesNewestNeverAfterNow() {
+        let log = DemoScenarios.history(for: .leftovers, now: now)
+        let calendar = Calendar.current
+        let days = Set(log.map { calendar.startOfDay(for: $0.timestamp) })
+        XCTAssertGreaterThanOrEqual(days.count, 4)
+        XCTAssertTrue(log.allSatisfy { $0.timestamp < calendar.startOfDay(for: now) }, "all before today, so the live stop is the only line for today")
+        XCTAssertGreaterThan(Set(log.map { calendar.component(.hour, from: $0.timestamp) }).count, 3, "different times of day")
+        XCTAssertEqual(log.map(\.timestamp), log.map(\.timestamp).sorted(), "oldest first")
+        XCTAssertEqual(Set(log.map(\.id)).count, log.count)
+        XCTAssertTrue(Set(log.map(\.result)).isSuperset(of: [.stopped, .forceStopped, .alreadyGone]))
+        XCTAssertFalse(log.contains { ActivityLog.encode($0).contains("/Users/") })
     }
 
     func testSurvivorsNeedAForceStopWhichFinishesThem() async {

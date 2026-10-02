@@ -74,7 +74,8 @@ struct PreferencesSheet: View {
             }
             .padding(Space.m)
         }
-        .frame(width: 480, height: 540)
+        // Tall enough for all four sections with their footnotes (the form scrolls if a long never-touch list grows it).
+        .frame(width: 480, height: 640)
     }
 
     /// `~/dev/foo` becomes an absolute path, which is what the protected list compares against.

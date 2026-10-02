@@ -26,35 +26,37 @@ struct ResultSheet: View {
         if case let .result(outcome) = model.phase { content(outcome) }
     }
 
+    /// Sized to its content: the page and the buttons when they fit (`ViewThatFits`), and when the page is taller than the
+    /// sheet's cap only the page scrolls, with the buttons pinned below it. No fixed height, so no dead space.
     private func content(_ outcome: StopOutcome) -> some View {
         let stopped = outcome.stoppedCount
         let running = self.survivors(outcome)
-        return ScrollView {
-            VStack(alignment: .leading, spacing: Space.l) {
-                header(outcome)
-                if !running.isEmpty { survivorsBox(running, outcome) }
-                let rows = self.notes(outcome)
-                if !rows.isEmpty {
-                    VStack(alignment: .leading, spacing: Space.xs) {
-                        ForEach(rows) { note in
-                            Label {
-                                Text(note.text).fixedSize(horizontal: false, vertical: true)
-                            } icon: {
-                                Image(systemName: note.status.symbol).foregroundStyle(note.status.tint)
-                            }
-                            .font(.system(size: 13))
-                        }
-                    }
-                    .accessibilityElement(children: .contain)
-                }
-                if stopped > 0 { share }
-                buttons(stopped: stopped)
+        let rows = self.notes(outcome)
+        let page = VStack(alignment: .leading, spacing: Space.l) {
+            header(outcome)
+            if !running.isEmpty { survivorsBox(running, outcome) }
+            if !rows.isEmpty { notesList(rows) }
+            if stopped > 0 { share(width: running.isEmpty ? 472 : 340) }
+        }
+        .padding(.horizontal, Space.xl)
+        .padding(.top, Space.xl)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        let bar = buttons(stopped: stopped)
+            .padding(.horizontal, Space.xl)
+            .padding(.top, Space.m)
+            .padding(.bottom, Space.xl)
+        return ViewThatFits(in: .vertical) {
+            VStack(spacing: 0) {
+                page
+                bar
             }
-            .padding(Space.xl)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(spacing: 0) {
+                ScrollView { page }
+                bar
+            }
         }
         .frame(width: 520)
-        .frame(minHeight: 300, idealHeight: 520, maxHeight: 640)
+        .frame(maxHeight: 640)
         .background(Room())
     }
 
@@ -74,6 +76,20 @@ struct ResultSheet: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
+    }
+
+    private func notesList(_ rows: [Note]) -> some View {
+        VStack(alignment: .leading, spacing: Space.xs) {
+            ForEach(rows) { note in
+                Label {
+                    Text(note.text).fixedSize(horizontal: false, vertical: true)
+                } icon: {
+                    Image(systemName: note.status.symbol).foregroundStyle(note.status.tint)
+                }
+                .font(.system(size: 13))
+            }
+        }
+        .accessibilityElement(children: .contain)
     }
 
     private func survivorsBox(_ survivors: [Survivors], _ outcome: StopOutcome) -> some View {
@@ -109,24 +125,30 @@ struct ResultSheet: View {
         .surface(16)
     }
 
-    /// The card, tilting slightly under the pointer (one of the two places HoverTilt is used), and what to do with it.
-    private var share: some View {
-        ShareCardView(card: model.shareCard(stopped: true), width: 400)
+    /// The card in full (the art is scaled to `width`, never cropped), tilting slightly under the pointer (one of the two
+    /// places HoverTilt is used). The padding is the room its lift shadow needs.
+    private func share(width: CGFloat) -> some View {
+        let card = model.shareCard(stopped: true)
+        return ShareCardView(card: card, weights: model.shareWeights(card), width: width)
             .modifier(HoverTilt(max: 4, glare: true))
             .lifted()
             .frame(maxWidth: .infinity)
-            .padding(.vertical, Space.xxs)
+            .padding(.bottom, Space.xs)
     }
 
     private func buttons(stopped: Int) -> some View {
         HStack(spacing: Space.xs) {
             if stopped > 0 {
                 Button(copied ? "Copied" : "Copy My Number") {
-                    if Export.copyImage(model.shareCard(stopped: true)) { flashCopied() }
+                    let card = model.shareCard(stopped: true)
+                    if Export.copyImage(card, weights: model.shareWeights(card)) { flashCopied() }
                 }
                 .buttonStyle(AmberButtonStyle())
-                Button("Save as PNG…") { Export.savePNG(model.shareCard(stopped: true)) }
-                    .buttonStyle(.bordered)
+                Button("Save as PNG…") {
+                    let card = model.shareCard(stopped: true)
+                    Export.savePNG(card, weights: model.shareWeights(card))
+                }
+                .buttonStyle(.bordered)
             }
             Button("Open the Log") {
                 model.reloadLog()
@@ -169,15 +191,17 @@ struct ResultSheet: View {
     /// "3 in Claude Code · ~/dev/foo"
     private func title(of entry: Survivors) -> String {
         guard let first = entry.targets.first else { return "" }
-        let place = entry.group.map { model.displayPath($0) } ?? first.projectName
+        let place = entry.group.flatMap { $0.project == nil ? nil : model.displayPath($0) } ?? first.projectName
         return "\(entry.targets.count) in \(first.agent.displayName)" + (place.map { " · \($0)" } ?? "")
     }
 
-    /// "node ×2, Chrome for Testing ×1": the three most common executables.
+    /// "node ×2, Google Chrome for Testing ×10": the three most common executables, a browser's helper processes counted
+    /// under the browser ("... Helper (Renderer)" and "... Helper (GPU)" are not separate kinds to the reader).
     private func kinds(of targets: [StopTarget]) -> String {
-        let names = Dictionary(grouping: targets, by: \.name).map { (name: $0.key, count: $0.value.count) }
+        let names = Dictionary(grouping: targets) { $0.name.components(separatedBy: " Helper").first ?? $0.name }
+            .map { (name: $0.key, count: $0.value.count) }
             .sorted { $0.count != $1.count ? $0.count > $1.count : $0.name < $1.name }
-        return names.prefix(3).map { "\($0.name) ×\($0.count)" }.joined(separator: ", ") + (names.count > 3 ? ", and \(names.count - 3) more kinds" : "")
+        return names.prefix(3).map { "\($0.name) ×\($0.count)" }.joined(separator: ", ") + (names.count > 3 ? ", and \(names.count - 3) more" : "")
     }
 
     /// What did not go to plan, in the fixed words (the popover says the same).

@@ -28,12 +28,16 @@ public enum DemoScenarios {
         return RawScan(processes: t.rows, selfPid: selfPid, uid: uid, home: home, scannedAt: now, unreadableCount: unreadable)
     }
 
-    /// What the fake signaller answers for one target. `refused` is EPERM for the Codex helpers of `bar`; `survivors`
+    /// The two Codex servers of `bar` that `refused` answers EPERM for (pinned pids, so the count is exactly two and the
+    /// copy reads "macOS did not allow Overstay to stop 2 processes"). Their helpers stop; the servers keep running.
+    public static let refusedPids: [Int32] = [29_001, 29_002]
+
+    /// What the fake signaller answers for one target. `refused` is EPERM for `refusedPids`; `survivors`
     /// ignores the polite signal for the headless browsers and every eleventh pid, and a force plan finishes them.
     public static func answer(_ scenario: DemoScenario, for target: StopTarget, mode: StopMode) -> TargetStatus {
         let done: TargetStatus = mode == .force ? .forceStopped : .stopped
         switch scenario {
-        case .refused where target.agent == .codex && target.projectName == "bar":
+        case .refused where refusedPids.contains(target.identity.pid):
             return .refused
         case .survivors where mode == .terminate && (target.agent == .automationBrowser || target.identity.pid % 11 == 0):
             return .survived
@@ -42,27 +46,43 @@ public enum DemoScenarios {
         }
     }
 
-    /// Earlier stops, so the activity screen has days to group. Oldest first. Empty where nothing has ever run.
+    /// Earlier stops, so the activity screen has days to group: two yesterday, one two days ago, one three and one five days
+    /// ago, at different times of day (anchored to midnight, so they never run into today whatever the clock says). Oldest
+    /// first, each stop leaf first and a second apart. Empty where nothing has ever run.
     public static func history(for scenario: DemoScenario, now: Date) -> [ActivityEntry] {
         if scenario == .quiet || scenario == .firstRun { return [] }
-        let rows: [(ago: Double, batch: String, pid: Int32, name: String, sig: String, agent: AgentKind, project: String?, mb: UInt64, why: String)] = [
-            (260_000, "history-2", 17_311, "codex", "codex-app-server", .codex, "api", 58,
-             "Parent is gone. Looks like a Codex helper. No live session in api."),
-            (260_000, "history-2", 17_318, "node_repl", "codex-node-repl", .codex, "api", 91,
-             "Parent is gone. Looks like a Codex helper. No live session in api."),
-            (90_000, "history-1", 18_190, "npm", "mcp-official", .unattributed, "web", 41,
-             "Parent is gone. Looks like an MCP server. No live session in web."),
-            (90_000, "history-1", 18_199, "zsh", "mcp-server-named", .unattributed, "web", 6,
-             "Parent is gone. Looks like an MCP server. No live session in web."),
-            (90_000, "history-1", 18_204, "node", "mcp-official", .unattributed, "web", 74,
-             "Parent is gone. Looks like an MCP server. No live session in web."),
-            (90_000, "history-1", 18_230, "Google Chrome for Testing", "automation-chrome", .automationBrowser, nil, 512,
-             "Parent is gone. Looks like an automation browser. No live session found."),
+        typealias Row = (pid: Int32, name: String, sig: String, agent: AgentKind, project: String?, mb: UInt64, result: TargetStatus, why: String)
+        typealias Past = (daysAgo: Int, hour: Int, minute: Int, batch: String, mode: StopMode, rows: [Row])
+        let codex = "Parent is gone. Looks like a Codex helper. No live session in api."
+        let mcp = "Parent is gone. Looks like an MCP server. No live session in web."
+        let browser = "Parent is gone. Looks like an automation browser. No live session found."
+        let stops: [Past] = [
+            (5, 11, 4, "history-1", .force, [
+                (16_702, "Google Chrome for Testing", "automation-chrome", .automationBrowser, nil, 486, .forceStopped, browser)]),
+            (3, 21, 36, "history-2", .terminate, [
+                (17_311, "node_repl", "codex-node-repl", .codex, "api", 91, .stopped, codex),
+                (17_314, "node_repl", "codex-node-repl", .codex, "api", 64, .alreadyGone, codex),
+                (17_305, "codex", "codex-app-server", .codex, "api", 58, .stopped, codex)]),
+            (2, 14, 20, "history-3", .terminate, [
+                (18_011, "node", "dev-next", .unattributed, "web", 312, .stopped,
+                 "Parent is gone. Matches a generic pattern, so Overstay is not sure.")]),
+            (1, 9, 15, "history-4", .terminate, [
+                (18_230, "Google Chrome for Testing", "automation-chrome", .automationBrowser, nil, 512, .stopped, browser)]),
+            (1, 16, 48, "history-5", .terminate, [
+                (18_204, "node", "mcp-official", .unattributed, "web", 74, .stopped, mcp),
+                (18_199, "zsh", "mcp-server-named", .unattributed, "web", 6, .stopped, mcp),
+                (18_190, "npm", "mcp-official", .unattributed, "web", 41, .stopped, mcp)]),
         ]
-        return rows.map {
-            ActivityEntry(timestamp: now.addingTimeInterval(-$0.ago), batchID: $0.batch, mode: .terminate, pid: $0.pid,
-                          executable: $0.name, signatureID: $0.sig, agent: $0.agent, project: $0.project,
-                          footprintBytes: $0.mb << 20, result: .stopped, why: $0.why)
+        let calendar = Calendar.current
+        let midnight = calendar.startOfDay(for: now)
+        return stops.flatMap { stop -> [ActivityEntry] in
+            let day = calendar.date(byAdding: .day, value: -stop.daysAgo, to: midnight) ?? midnight.addingTimeInterval(-86_400 * Double(stop.daysAgo))
+            let begin = day.addingTimeInterval(Double(stop.hour * 3_600 + stop.minute * 60))
+            return stop.rows.enumerated().map { i, r in
+                ActivityEntry(timestamp: begin.addingTimeInterval(Double(i)), batchID: stop.batch, mode: stop.mode, pid: r.pid,
+                              executable: r.name, signatureID: r.sig, agent: r.agent, project: r.project,
+                              footprintBytes: r.mb << 20, result: r.result, why: r.why)
+            }
         }
     }
 
@@ -168,7 +188,7 @@ public enum DemoScenarios {
 
         mutating func ghosts() {
             mcpGroup("foo", sizes: Array(repeating: 3, count: 20) + [1], mb: 3_174, oldest: 273_600)
-            codexGroup("bar", sizes: Array(repeating: 5, count: 8), mb: 2_253, oldest: 183_600)
+            codexGroup("bar", sizes: Array(repeating: 5, count: 8), mb: 2_253, oldest: 183_600, pinned: DemoScenarios.refusedPids)
             browserGroup(sizes: [6, 6], mb: 1_434, oldest: 19_200)
             mcpGroup("baz", sizes: Array(repeating: 3, count: 12) + [2], mb: 1_536, oldest: 349_200)
             codexGroup("qux", sizes: Array(repeating: 4, count: 8), mb: 1_229, oldest: 108_000)
@@ -190,13 +210,14 @@ public enum DemoScenarios {
             end(mb: mb)
         }
 
-        /// Trees of one `codex app-server` with node_repl helpers under it.
-        mutating func codexGroup(_ project: String, sizes: [Int], mb: Int, oldest: Int) {
+        /// Trees of one `codex app-server` with node_repl helpers under it. The first trees' servers take the `pinned` pids.
+        mutating func codexGroup(_ project: String, sizes: [Int], mb: Int, oldest: Int, pinned: [Int32] = []) {
             let dir = "\(DemoScenarios.home)/dev/\(project)"
             begin()
             for (j, size) in sizes.enumerated() {
                 let age = treeAge(j, oldest)
-                let server = add("/opt/homebrew/bin/codex", ["codex", "app-server", "--listen", "stdio://"], cwd: dir, root: dir, age: age, weight: 3)
+                let server = add("/opt/homebrew/bin/codex", ["codex", "app-server", "--listen", "stdio://"], cwd: dir, root: dir, age: age,
+                                 weight: 3, pid: j < pinned.count ? pinned[j] : nil)
                 for k in 1..<size {
                     add("\(DemoScenarios.home)/.codex/bin/node_repl", ["node_repl"], ppid: server, cwd: dir, root: dir,
                         age: age - 5 * k, weight: 2 + (j + k) % 3)

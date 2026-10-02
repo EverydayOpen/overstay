@@ -263,15 +263,20 @@ struct PopoverView: View {
         HStack(spacing: Space.s) {
             OrbitRing(groups: groups, progress: stopping ? model.remainingFraction : 1, size: 56)
                 .animation(Motion.standard(reduceMotion), value: model.remainingFraction)
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("\(count)")
-                    .font(.system(size: 28, weight: .semibold, design: .rounded)).monospacedDigit()
-                    .contentTransition(.numericText(countsDown: true))
-                    .animation(Motion.standard(reduceMotion), value: count)
-                Text("leftover · \(Format.bytes(bytes))").font(.system(size: 15)).foregroundStyle(.secondary)
+            // One line that never wraps: the words give way (scale) before the number does. The sample tag sits under it.
+            VStack(alignment: .leading, spacing: Space.xxs) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(count)")
+                        .font(.system(size: 28, weight: .semibold, design: .rounded)).monospacedDigit()
+                        .contentTransition(.numericText(countsDown: true))
+                        .animation(Motion.standard(reduceMotion), value: count)
+                        .layoutPriority(1)
+                    Text("leftover · \(Format.bytes(bytes))").font(.system(size: 15)).foregroundStyle(.secondary)
+                        .lineLimit(1).minimumScaleFactor(0.8)
+                }
+                if model.isDemo { Tag(text: ShareCardText.sampleWatermark, tint: Brand.amber) }
             }
             Spacer(minLength: 0)
-            if model.isDemo { Tag(text: ShareCardText.sampleWatermark, tint: Brand.amber) }
         }
         .padding(.horizontal, Space.m)
         .accessibilityElement(children: .ignore)

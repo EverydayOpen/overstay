@@ -10,7 +10,7 @@ struct GroupDetailView: View {
     let home: String
 
     var body: some View {
-        let ghosts = group.ghosts
+        let ghosts = Self.treeOrder(group.ghosts)
         let byPid = Dictionary(group.processes.map { ($0.process.pid, $0.process) }, uniquingKeysWith: { a, _ in a })
         let depths = Self.depths(group.processes, byPid: byPid)
         ScrollView {
@@ -34,7 +34,6 @@ struct GroupDetailView: View {
             .padding(Space.xl)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Room())
     }
 
     private var header: some View {
@@ -50,11 +49,29 @@ struct GroupDetailView: View {
     }
 
     private var subtitle: String {
-        var parts = [group.project.map { Scrub.tilde($0.root, home: home) } ?? "Folder unknown"]
+        var parts = [group.project.map { Scrub.tilde($0.root, home: home) } ?? "No project folder"]
         if group.ghostCount > 0 { parts += ["\(group.ghostCount) leftover", Format.bytes(group.ghostBytes)] }
         if group.maybeCount > 0 { parts.append("\(group.maybeCount) Maybe") }
         if let start = group.oldestStart { parts.append(Format.started(seconds: Int(now.timeIntervalSince(start)))) }
         return parts.joined(separator: " · ")
+    }
+
+    /// Each parent followed by its own subtree, so an `npm`, `zsh`, `node` chain reads as one chain instead of every `npm`
+    /// first. Roots keep the group's order (by pid); a loop in the table cannot hang it.
+    private static func treeOrder(_ items: [ClassifiedProcess]) -> [ClassifiedProcess] {
+        let pids = Set(items.map(\.process.pid))
+        let kids = Dictionary(grouping: items.filter { pids.contains($0.process.ppid) && $0.process.ppid != $0.process.pid },
+                              by: { $0.process.ppid })
+        var out: [ClassifiedProcess] = []
+        var seen = Set<Int32>()
+        func visit(_ c: ClassifiedProcess) {
+            guard seen.insert(c.process.pid).inserted else { return }
+            out.append(c)
+            for k in (kids[c.process.pid] ?? []).sorted(by: { $0.process.pid < $1.process.pid }) { visit(k) }
+        }
+        for c in items where !pids.contains(c.process.ppid) || c.process.ppid == c.process.pid { visit(c) }
+        for c in items { visit(c) }
+        return out
     }
 
     /// Depth of each member under its parent when the parent is in the group too. Loop-safe.
@@ -145,13 +162,14 @@ struct DetailRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: Space.xs) {
-                Text(c.process.name.isEmpty ? "Unnamed" : c.process.name)
+                Text(RowRole.title(c))
                     .font(.system(size: 13, weight: .semibold)).lineLimit(1)
                 Spacer(minLength: Space.xs)
                 Text(Format.bytes(c.process.footprintBytes))
                     .font(.system(size: 12, weight: .medium, design: .rounded)).monospacedDigit().foregroundStyle(.secondary)
                 Tag(text: c.tier.word, tint: c.tier.tint)
             }
+            Text(meta).font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit().lineLimit(1)
             if showsProject, let project = projectText {
                 Text(project).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
             }
@@ -188,6 +206,15 @@ struct DetailRow: View {
         .accessibilityElement(children: .contain)
     }
 
+    /// "npm · pid 20012 · started 3 days ago": what it runs as, which one, how long.
+    private var meta: String {
+        var parts: [String] = []
+        if !c.process.name.isEmpty { parts.append(c.process.name) }
+        parts.append("pid \(c.process.pid)")
+        parts.append(Format.started(seconds: c.process.age(at: now)))
+        return parts.joined(separator: " · ")
+    }
+
     private var projectText: String? {
         ProjectNamer.project(projectRoot: c.process.projectRoot, cwd: c.process.cwd, home: home).map { Scrub.tilde($0.root, home: home) }
     }
@@ -205,7 +232,6 @@ struct DetailRow: View {
             field("Command", c.process.argv.isEmpty ? "Not readable" : c.process.argvSummary)
             if let cwd = c.process.cwd { field("Folder", Scrub.tilde(cwd, home: home)) }
             if !c.process.path.isEmpty { field("Program", Scrub.tilde(c.process.path, home: home)) }
-            field("Running", "pid \(c.process.pid) · \(Format.started(seconds: c.process.age(at: now)))")
         }
         .padding(Space.xs)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -222,6 +248,48 @@ struct DetailRow: View {
                 .lineLimit(4).fixedSize(horizontal: false, vertical: true)
                 .textSelection(.enabled)
         }
+    }
+}
+
+/// A row's headline: what the signature matched, then the one word that tells siblings apart ("MCP server: filesystem",
+/// "Codex helper: app server", "Automation browser: renderer"). Read from the scrubbed argv and the executable name only.
+private enum RowRole {
+    private static let titles = Dictionary(Signatures.all.map { ($0.id, $0.title) }, uniquingKeysWith: { a, _ in a })
+
+    static func title(_ c: ClassifiedProcess) -> String {
+        guard let id = c.evidence.signatureID, let base = titles[id] else { return c.process.name.isEmpty ? "Unnamed" : c.process.name }
+        guard let part = detail(id, c.process) else { return base }
+        return "\(base): \(part)"
+    }
+
+    private static func detail(_ id: String, _ p: ProcessSnapshot) -> String? {
+        switch id {
+        case "mcp-official", "mcp-server-named", "mcp-suffix": return mcpName(p.argv)
+        case "codex-app-server": return "app server"
+        case "codex-node-repl": return "Node REPL"
+        case "automation-chrome": return helperKind(p.name)
+        default: return nil
+        }
+    }
+
+    /// `server-filesystem`, `mcp-server-github` and `context7-mcp` (with any scope, path or `@latest`) are "filesystem",
+    /// "github" and "context7".
+    private static func mcpName(_ argv: [String]) -> String? {
+        for word in argv.flatMap({ $0.split(separator: " ") }) {
+            guard let name = word.split(separator: "/").last?.split(separator: "@").first.map(String.init) else { continue }
+            for prefix in ["mcp-server-", "server-"] where name.hasPrefix(prefix) && name.count > prefix.count {
+                return String(name.dropFirst(prefix.count))
+            }
+            if name.hasSuffix("-mcp"), name.count > 4 { return String(name.dropLast(4)) }
+        }
+        return nil
+    }
+
+    /// "Google Chrome for Testing Helper (Renderer)" is a "renderer"; the browser itself has no extra word.
+    private static func helperKind(_ name: String) -> String? {
+        guard let open = name.range(of: "Helper (") else { return name.contains("Helper") ? "helper" : nil }
+        let rest = name[open.upperBound...]
+        return rest.firstIndex(of: ")").map { rest[..<$0].lowercased() }
     }
 }
 

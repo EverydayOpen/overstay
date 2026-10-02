@@ -78,10 +78,11 @@ jobs:
           cat > "$RUNNER_TEMP/lib.sh" <<'EOF'
           app="build/dd/Build/Products/Debug/$APP.app"
           win="$RUNNER_TEMP/window"
-          # launch <screen> <look> [scenario]
+          # launch <screen> <look> [scenario] [scroll 0..1]
           launch() {
             local args=(-demoScreen "$1" -demoAppearance "$2")
             if [ -n "${3:-}" ]; then args+=(-demo "$3"); fi
+            if [ -n "${4:-}" ]; then args+=(-demoScroll "$4"); fi
             open -n "$app" --args "${args[@]}"
           }
           # find_window <max width>: waits up to 30 s, sets $info to "id x y w h"
@@ -103,7 +104,9 @@ jobs:
           # No mouse or trackpad on the runner, so macOS shows always-on legacy scroll bars. Each screen is a fresh
           # launch, which reads the global domain.
           defaults write -g AppleShowScrollBars -string WhenScrolling
-          # name|screen|scenario (empty: the screen's default)|max window width|also capture the screen rect (sheets)
+          # name|screen|scenario (empty: the screen's default)|max window width|also capture the screen rect (sheets)|scroll
+          # (empty, or 0..1: how far down the main window's widest scrollable area is scrolled before the capture; the
+          # activity log's older days and the end of a detail list are below the fold otherwise)
           # The share card is rendered by the app itself in the next step (-demoShareOut), not captured here.
           list='firstRun|firstRun||99999|0
           popover|popover||420|0
@@ -113,24 +116,26 @@ jobs:
           groupsQuiet|groups|quiet|99999|0
           groupsMaybe|groups|maybe-only|99999|0
           detail|detail||99999|0
+          detailEnd|detail||99999|0|1
           stopSheet|stopSheet||99999|1
           running|running||99999|1
           result|result||99999|1
           resultSurvivors|result|survivors|99999|1
           edge|edge||99999|1
           activity|activity||99999|0
+          activityOlder|activity||99999|0|1
           preferences|preferences||99999|1'
           for look in light dark; do
             for entry in $list; do
-              IFS='|' read -r name screen scenario max region <<< "$entry"   # empty fields stay empty: '|' is not whitespace
-              launch "$screen" "$look" "$scenario"
+              IFS='|' read -r name screen scenario max region scroll <<< "$entry"   # empty fields stay empty: '|' is not whitespace
+              launch "$screen" "$look" "$scenario" "$scroll"
               if ! find_window "$max"; then
                 screencapture -x "screens/no-window-$name.png"
                 echo "::error::No $APP window for $name ($look) within 30 s"
                 exit 1
               fi
               set -- $info
-              sleep 5   # scan, stop flow, entrance animations
+              sleep 6   # scan, stop flow, entrance animations, the scroll passes (3, 4 and 5 s after launch)
               screencapture -x -l"$1" "screens/$name-$look.png"
               if [ "$region" = 1 ]; then
                 # A sheet may not be part of a single-window capture (VERIFY): the window's screen rect has it.
@@ -143,9 +148,11 @@ jobs:
           ls -l screens
 
       # The README hero (BUILD_PLAN §9): drawn menu bar with the amber badge, the popover, the collapse, the share card.
-      # The collapse is a burst of screen-rect captures of the real window while `hero` runs (idle, Stop, a 3 s run, the
-      # result), timestamped, so the frames are real animation, not a re-enactment. screencapture costs 100-250 ms per
-      # call (VERIFY), so expect 5-8 frames per second; frames.ffconcat carries each frame's real duration.
+      # The collapse is a burst of screen-rect captures of the real window while `hero` runs (idle, Stop, a 4 s run, the
+      # result), timestamped, so the frames are real animation, not a re-enactment. In `hero` the app starts the stop itself
+      # and keeps the Stopping sheet invisible (App/Demo.swift), so the frames show the slabs settling and the counter
+      # running down, with the result sheet only at the end. screencapture costs 100-250 ms per call (VERIFY), so up to three
+      # run at once, each stamped when it starts; frames.ffconcat carries each frame's real duration.
       - name: Hero frames
         run: |
           source "$RUNNER_TEMP/lib.sh"
@@ -156,19 +163,25 @@ jobs:
           find_window 99999 || { echo "::error::No $APP window for hero"; exit 1; }
           set -- $info
           python3 - "$2,$3,$4,$5" hero-frames/collapse <<'PY'
-          import subprocess, sys, time
+          import os, subprocess, sys, time
           rect, out = sys.argv[1], sys.argv[2]
           start = time.monotonic()
-          stamps = []
+          shots = []   # (seconds since start, file, process)
           while time.monotonic() - start < 10:
-              stamps.append(time.monotonic() - start)
-              subprocess.run(["screencapture", "-x", "-R", rect, "%s/f%03d.png" % (out, len(stamps) - 1)], check=True)
+              path = "%s/f%03d.png" % (out, len(shots))
+              shots.append((time.monotonic() - start, path, subprocess.Popen(["screencapture", "-x", "-R", rect, path])))
+              while sum(p.poll() is None for _, _, p in shots[-3:]) >= 3: time.sleep(0.01)
+              time.sleep(0.05)
           end = time.monotonic() - start
+          for _, _, p in shots: p.wait()
+          good = [(t, f) for t, f, p in shots if p.returncode == 0 and os.path.getsize(f) > 0]
+          print("%d of %d frames captured" % (len(good), len(shots)))
           with open(out + "/frames.ffconcat", "w") as f:
               f.write("ffconcat version 1.0\n")
-              for i, t in enumerate(stamps):
-                  f.write("file 'f%03d.png'\nduration %.3f\n" % (i, (stamps[i + 1] if i + 1 < len(stamps) else end) - t))
-              f.write("file 'f%03d.png'\n" % (len(stamps) - 1))   # the concat demuxer drops the last duration unless the file repeats
+              for i, (t, name) in enumerate(good):
+                  hold = 1.5 if i + 1 == len(good) else 0   # the last frame stays up before the GIF loops
+                  f.write("file '%s'\nduration %.3f\n" % (os.path.basename(name), (good[i + 1][0] if i + 1 < len(good) else end) - t + hold))
+              f.write("file '%s'\n" % os.path.basename(good[-1][1]))   # the concat demuxer drops the last duration unless the file repeats
           PY
           quit
           out="$PWD/hero-frames/04-share.png"

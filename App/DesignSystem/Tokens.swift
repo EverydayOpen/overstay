@@ -61,6 +61,14 @@ enum Brand {
             ? NSColor(srgbRed: 0.961, green: 0.710, blue: 0.290, alpha: 1)                              // #F5B54A
             : NSColor(srgbRed: 0.604, green: 0.357, blue: 0.000, alpha: 1)                              // #9A5B00
     })
+    /// The sidebar's selected row: a pale amber wash with primary text on it, not the accent colour at full strength (that
+    /// read as a brown block in light mode, a heavy orange one in dark). Draw it behind the row (a rounded rect of
+    /// `Radius.chip`) instead of relying on the List's own highlight. VERIFY `listRowBackground` over a sidebar List on 13.
+    static let selection = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 0.949, green: 0.663, blue: 0.231, alpha: 0.26)                           // #F2A93B at 26%
+            : NSColor(srgbRed: 0.949, green: 0.663, blue: 0.231, alpha: 0.30)                           // #F2A93B at 30%
+    })
 }
 
 extension AgentKind {
