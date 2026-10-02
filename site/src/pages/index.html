@@ -25,16 +25,15 @@
         </ul>
         <p class="bar" aria-hidden="true"><b>Overstay</b><span class="badge"><svg aria-hidden="true"><use href="#i-mark"/></svg>183 · 9.4 GB</span><span class="clock">Tue 23:41</span></p>
         <div class="pop-wrap">
-          <figure class="pop" role="img" aria-label="Illustration with sample data: the Overstay menu bar panel. 183 leftover processes holding 9.4 GB in five groups sorted by size, the top three shown. Agent tool servers in ~/dev/foo, 61 processes, 3.1 GB, started 3 days ago. Codex in ~/dev/bar, 40 processes, 2.2 GB, started 2 days ago. Agent tool servers in ~/dev/baz, 38 processes, 1.5 GB, started 4 days ago. Two more groups hold 44 processes and 2.6 GB. A Stop 183 button.">
-            <p class="pop-head"><i class="ring"></i><span class="found"><b>183</b> leftover · <b>9.4</b> GB</span><span class="held"><svg aria-hidden="true"><use href="#i-ok"/></svg><span>Stopped <b>183</b>. <b>9.4</b> GB was held.</span></span></p>
+          <figure class="pop" role="img" aria-label="Illustration with sample data: the Overstay menu bar panel. 183 leftover processes holding 9.4 GB in five groups sorted by size, the top three shown. Agent tool servers in ~/dev/foo, 61 processes, 3.1 GB, started 3 days ago. Codex in ~/dev/bar, 40 processes, 2.2 GB, started 2 days ago. Agent tool servers in ~/dev/baz, 38 processes, 1.5 GB, started 4 days ago. And 2 more groups. A Stop 183 button.">
+            <p class="pop-head"><i class="ring"></i><span class="found"><b>183</b> leftover · <b>9.4</b> GB</span><span class="held"><svg aria-hidden="true"><use href="#i-ok"/></svg><span>Stopped <b>183</b>. <b>9.4</b> GB was held.</span></span><span class="tag amber pop-sample">Sample data</span></p>
             <ul class="pop-rows">
-              <li><svg aria-hidden="true"><use href="#g-server"/></svg><span><b>Agent tool servers</b> ~/dev/foo</span><code>61 · 3.1 GB</code><small>started 3 days ago</small></li>
-              <li><svg aria-hidden="true"><use href="#g-code"/></svg><span><b>Codex</b> ~/dev/bar</span><code>40 · 2.2 GB</code><small>started 2 days ago</small></li>
-              <li><svg aria-hidden="true"><use href="#g-server"/></svg><span><b>Agent tool servers</b> ~/dev/baz</span><code>38 · 1.5 GB</code><small>started 4 days ago</small></li>
-              <li><svg aria-hidden="true"><use href="#g-globe"/></svg><span>2 more groups</span><code>44 · 2.6 GB</code></li>
+              <li><i class="check"></i><svg aria-hidden="true"><use href="#g-server"/></svg><span><b>Agent tool servers</b><small>~/dev/foo</small></span><code>61 · 3.1 GB<small>started 3 days ago</small></code></li>
+              <li><i class="check"></i><svg aria-hidden="true"><use href="#g-code"/></svg><span><b>Codex</b><small>~/dev/bar</small></span><code>40 · 2.2 GB<small>started 2 days ago</small></code></li>
+              <li><i class="check"></i><svg aria-hidden="true"><use href="#g-server"/></svg><span><b>Agent tool servers</b><small>~/dev/baz</small></span><code>38 · 1.5 GB<small>started 4 days ago</small></code></li>
             </ul>
-            <p class="pop-foot"><span class="pop-cta">Stop 183</span><span>Open Overstay</span><span>Quit</span></p>
-            <p class="pop-sample" aria-hidden="true">Sample data</p>
+            <p class="pop-more">and 2 more groups</p>
+            <p class="pop-foot"><span>Open Overstay</span><span>Quit</span><span class="pop-cta">Stop 183</span></p>
           </figure>
           <button class="button pop-stop" type="button" data-sweep="Reset demo" aria-controls="hero-scene" hidden>Stop 183</button>
           <p class="sr-only" role="status" aria-live="polite" data-sweep-status></p>
@@ -104,11 +103,11 @@
     <p class="lede">Choose a group, read exactly what will stop, confirm. Overstay asks nicely, children before parents, and tells you what is still running.</p>
   </div>
   <div class="slabs reveal" data-tilt role="img" aria-label="Sample data: five slabs sized by memory. Agent tool servers in foo 3.1 GB, Codex in bar 2.2 GB, agent tool servers in baz 1.5 GB, headless browsers 1.4 GB, Codex in qux 1.2 GB.">
-    <div><span class="label">Tool servers · foo</span><strong>3.1 GB</strong><small>61 processes</small></div>
-    <div><span class="label">Codex · bar</span><strong>2.2 GB</strong><small>40 processes</small></div>
-    <div><span class="label">Tool servers · baz</span><strong>1.5 GB</strong><small>38 processes</small></div>
-    <div><span class="label">Headless browsers</span><strong>1.4 GB</strong><small>12 processes</small></div>
-    <div><span class="label">Codex · qux</span><strong>1.2 GB</strong><small>32 processes</small></div>
+    <div><span class="label">Tool servers · foo</span><strong>3.1 GB</strong><small>61 processes</small><i class="ring" aria-hidden="true"></i></div>
+    <div><span class="label">Codex · bar</span><strong>2.2 GB</strong><small>40 processes</small><i class="ring" aria-hidden="true"></i></div>
+    <div><span class="label">Tool servers · baz</span><strong>1.5 GB</strong><small>38 processes</small><i class="ring" aria-hidden="true"></i></div>
+    <div><span class="label">Headless browsers</span><strong>1.4 GB</strong><small>12 processes</small><i class="ring" aria-hidden="true"></i></div>
+    <div><span class="label">Codex · qux</span><strong>1.2 GB</strong><small>32 processes</small><i class="ring" aria-hidden="true"></i></div>
   </div>
   <p class="receipt reveal"><b>SIGTERM</b> first · children before parents · waits up to <b>5 s</b> · survivors reported · <b>SIGKILL</b> only when you ask, one group at a time</p>
   <p class="note">Sample data. There is no undo: anything unsaved inside a stopped process is lost, and Overstay says so before you confirm.</p>
@@ -188,6 +187,7 @@
 </section>
 
 <section class="finale room" aria-labelledby="finale-h">
+  <i class="door" aria-hidden="true"></i>
   <div class="wrap">
     <div class="podium"><img class="icon" src="/icon.png" width="176" height="176" alt="Overstay app icon" loading="lazy" decoding="async"></div>
     <h2 id="finale-h">Send them home. It's free.</h2>

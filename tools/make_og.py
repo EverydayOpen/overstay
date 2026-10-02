@@ -29,7 +29,7 @@ X0, X1 = 80.0, 1120.0                       # content inset
 # Text. Keep it to the glyphs in GLYPHS. The numbers are the `leftovers` demo scenario's (BUILD_PLAN section 9).
 TITLE, BADGE = "Overstay", "Sample data"
 HEADLINE = ["Your AI agents left", "9.4 GB running."]
-SLABS = [("Tool servers", 3.1), ("Codex", 2.2), ("Browsers", 1.4), ("Tool servers", 1.5), ("Codex", 1.2)]   # only groups the classifier can produce
+SLABS = [("Tool servers", 3.1), ("Codex", 2.2), ("Tool servers", 1.5), ("Browsers", 1.4), ("Codex", 1.2)]   # only groups the classifier can produce
 FOOTER = "Free · Open source · Offline · Not affiliated with any tool it detects"
 
 # Glyphs in x-height units, y up from the baseline, as stroke centrelines. Centrelines sit a default half stroke

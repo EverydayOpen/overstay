@@ -28,14 +28,24 @@ struct GroupsView: View {
     private var sidebar: some View {
         List(selection: selection) {
             Label("Overview", systemImage: "square.grid.2x2").tag(Self.overviewTag)
+                .listRowBackground(rowFill(isSelected: selection.wrappedValue == Self.overviewTag))
             if let scan = model.scan, !scan.groups.isEmpty {
                 Section("Groups") {
                     ForEach(scan.groups) { group in
                         SidebarRow(group: group, now: scan.scannedAt, home: scan.home).tag(group.id)
+                            .listRowBackground(rowFill(isSelected: selection.wrappedValue == group.id))
                     }
                 }
             }
         }
+    }
+
+    /// The pale amber wash behind the selected row (`Brand.selection`). VERIFY on a Mac that it replaces the List's own
+    /// highlight on macOS 13; if the accent block still paints over it, switch the sidebar to a ScrollView of plain Buttons.
+    private func rowFill(isSelected: Bool) -> some View {
+        RoundedRectangle(cornerRadius: Radius.chip, style: .continuous)
+            .fill(isSelected ? Brand.selection : Color.clear)
+            .padding(.horizontal, 6)
     }
 
     @ViewBuilder private var detail: some View {
@@ -226,7 +236,7 @@ private struct Overview: View {
     @ViewBuilder private var maybes: some View {
         let items = scan.groups.flatMap(\.maybes)
         if !items.isEmpty {
-            MaybeSection(items: items, home: scan.home, now: scan.scannedAt, startOpen: scan.ghostCount == 0, showsProject: true)
+            MaybeSection(items: items, home: scan.home, now: scan.scannedAt, startOpen: scan.ghostCount == 0 || scan.maybeCount <= 4, showsProject: true)
         }
     }
 }

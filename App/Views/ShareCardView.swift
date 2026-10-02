@@ -59,8 +59,7 @@ struct ShareCardView: View {
             topRow
             Spacer(minLength: 8)
             hero
-            Spacer(minLength: 8)
-            if !parts.isEmpty { barBlock }
+            if !parts.isEmpty { barBlock.padding(.top, 18) }
         }
         .padding(.horizontal, Self.inset)
         .padding(.vertical, 28)
@@ -198,7 +197,7 @@ struct ShareCardView: View {
         return out
     }
 
-    /// After a stop the bar sits lower and dimmer, echoing the collapse; before, it is full height.
+    /// After a stop the bar is dimmer, echoing the collapse; it keeps its height so it still anchors the card.
     private var barBlock: some View {
         let settled = card.kind == .stopped
         let parts = self.parts
@@ -209,7 +208,7 @@ struct ShareCardView: View {
                     let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
                     shape.fill(parts[i].color.opacity(settled ? 0.6 : 1))
                         .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.4), .clear], startPoint: .top, endPoint: .center), lineWidth: 1))
-                        .frame(width: sizes[i], height: settled ? 22 : 34)
+                        .frame(width: sizes[i], height: 34)
                 }
             }
             .frame(width: Self.barWidth, alignment: .leading)

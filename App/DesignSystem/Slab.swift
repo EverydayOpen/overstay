@@ -38,23 +38,13 @@ struct Slab: View {
                         : [Color(red: 1, green: 0.992, blue: 0.976), Color(red: 0.953, green: 0.925, blue: 0.882)]        // #FFFDF9 → #F3ECE1
         VStack(alignment: tier == .tiny ? .center : .leading, spacing: 4) {
             if tier != .tiny {
-                HStack(spacing: 4) {
-                    Text(Self.label(group)).font(.caption.weight(.semibold)).foregroundStyle(.secondary).lineLimit(1)
-                    if tier == .full {
-                        Spacer(minLength: 0)
-                        Image(systemName: group.agent.symbol).font(.system(size: 10, weight: .medium)).foregroundStyle(.tertiary)
-                    }
-                }
+                Text(Self.label(group)).font(.caption.weight(.semibold)).foregroundStyle(.secondary).lineLimit(1)
             }
             Text(Format.bytes(group.ghostBytes))
                 .font(.system(size: tier == .full ? 17 : tier == .compact ? 14 : 13, weight: .semibold, design: .rounded))
                 .monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
             if tier != .tiny {
-                ViewThatFits(in: .horizontal) {
-                    Text(Format.count(group.ghostCount, "process"))
-                    Text("\(group.ghostCount)")
-                }
-                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                Text("\(group.ghostCount)").font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             }
         }
         .padding(tier == .full ? Space.s : tier == .compact ? 8 : 6)

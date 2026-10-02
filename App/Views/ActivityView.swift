@@ -13,7 +13,7 @@ struct ActivityView: View {
     /// Stops the reader has opened or closed against their default.
     @State private var flipped: Set<String> = []
 
-    /// One Stop click. `entries` keep the log's own order, which is the order they were stopped in (leaf first).
+    /// One Stop click. `entries` keep the log's own order (the order they were stopped in, leaf first); an expanded stop lists them reversed, newest first.
     private struct Batch: Identifiable {
         let id: String
         let entries: [ActivityEntry]
@@ -42,7 +42,7 @@ struct ActivityView: View {
                                     EntryRow(entry: only, showsTime: true)
                                 } else {
                                     DisclosureGroup(isExpanded: expanded(batch)) {
-                                        ForEach(batch.entries) { EntryRow(entry: $0, showsTime: false) }
+                                        ForEach(batch.entries.reversed()) { EntryRow(entry: $0, showsTime: false) }
                                     } label: {
                                         BatchLine(entries: batch.entries, start: batch.start)
                                     }

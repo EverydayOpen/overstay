@@ -114,12 +114,13 @@ enum Demo {
             model.requestStop(groupIDs: ids)
             await model.confirmStop()
             let card = model.shareCard(stopped: true)
+            let weights = model.shareWeights(card)
             if let path = argument("demoShareOut") {
-                if !Export.writePNG(card, to: URL(fileURLWithPath: path)) { fatalError("Could not write the share card") }
+                if !Export.writePNG(card, to: URL(fileURLWithPath: path), weights: weights) { fatalError("Could not write the share card") }
                 NSApp.terminate(nil)
             }
             model.dismissResult()
-            present(ShareCardView(card: card, width: 2 * ShareCardView.size.width))
+            present(ShareCardView(card: card, weights: weights, width: 2 * ShareCardView.size.width))
         case .hero:
             while !mainOpened { try? await Task.sleep(nanoseconds: 50_000_000) }   // the recording starts when the window is up
             try? await Task.sleep(nanoseconds: 2_500_000_000)   // idle frames first

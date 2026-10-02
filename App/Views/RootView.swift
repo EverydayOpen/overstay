@@ -56,7 +56,8 @@ struct RootView: View {
                     .disabled(model.isScanning || model.phase != .idle)
                     .help("Rescan")
                 Button {
-                    if Export.copyImage(model.shareCard(stopped: false)) { flashCopied() }
+                    let card = model.shareCard(stopped: false)
+                    if Export.copyImage(card, weights: model.shareWeights(card)) { flashCopied() }
                 } label: {
                     Label(copied ? "Copied" : "Copy My Number", systemImage: copied ? "checkmark" : "square.and.arrow.up")
                 }

@@ -35,7 +35,7 @@ struct PreferencesSheet: View {
                         }
                     }
                     HStack {
-                        TextField("Program name or folder", text: $entry).onSubmit(add)
+                        TextField("Program name or folder", text: $entry).multilineTextAlignment(.leading).onSubmit(add)
                         Button("Add", action: add).disabled(!canAdd)
                     }
                 } header: {
@@ -70,12 +70,13 @@ struct PreferencesSheet: View {
             HStack {
                 Spacer()
                 Button("Done") { model.showPreferences = false }
+                    .buttonStyle(AmberButtonStyle())
                     .keyboardShortcut(.defaultAction)
             }
             .padding(Space.m)
         }
         // Tall enough for all four sections with their footnotes (the form scrolls if a long never-touch list grows it).
-        .frame(width: 480, height: 640)
+        .frame(width: 480, height: 560)
     }
 
     /// `~/dev/foo` becomes an absolute path, which is what the protected list compares against.

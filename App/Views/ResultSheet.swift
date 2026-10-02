@@ -36,7 +36,7 @@ struct ResultSheet: View {
             header(outcome)
             if !running.isEmpty { survivorsBox(running, outcome) }
             if !rows.isEmpty { notesList(rows) }
-            if stopped > 0 { share(width: running.isEmpty ? 472 : 340) }
+            if stopped > 0, running.isEmpty { share(width: 472) }
         }
         .padding(.horizontal, Space.xl)
         .padding(.top, Space.xl)
