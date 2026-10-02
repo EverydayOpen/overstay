@@ -59,10 +59,10 @@ enum Demo {
     }
 
     /// Once per launch; a share-card run opens nothing (it quits as soon as the PNG is written).
-    @MainActor static func openMainWindow(_ open: () -> Void) {
+    @MainActor static func openMainWindow(_ show: () -> Void) {
         guard setup != nil, !mainOpened else { return }
         mainOpened = true
-        open()
+        show()
         activateApp()
     }
 
