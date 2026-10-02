@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Why are node and MCP processes still running after Claude Code or Codex exits?</title>
+<meta name="description" content="How an MCP server is meant to shut down when its agent quits, why some keep running as orphans, what the open bug reports say, and how to tell a leftover from a process you still need.">
+<link rel="canonical" href="https://everydayopen.github.io/overstay/guides/why-mcp-and-node-processes-keep-running/">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#faf6ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f0d0b" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Overstay">
+<meta property="og:title" content="Why are node and MCP processes still running after Claude Code or Codex exits?">
+<meta property="og:description" content="How an MCP server is meant to shut down when its agent quits, why some keep running as orphans, what the open bug reports say, and how to tell a leftover from a process you still need.">
+<meta property="og:url" content="https://everydayopen.github.io/overstay/guides/why-mcp-and-node-processes-keep-running/">
+<meta property="og:image" content="https://everydayopen.github.io/overstay/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Sample data: five raised amber slabs sized by memory. Your AI agents left 9.4 GB running: agent tool servers 3.1 GB, Codex 2.2 GB, browsers 1.4 GB, agent tool servers 1.5 GB, Codex 1.2 GB.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="/overstay/favicon.png">
+<link rel="apple-touch-icon" href="/overstay/apple-touch-icon.png">
+<link rel="alternate" type="application/rss+xml" title="Overstay changelog" href="/overstay/feed.xml">
+<link rel="stylesheet" href="/overstay/styles.css">
+<script src="/overstay/motion.js" defer></script>
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M4.5 19.5h15"/></symbol>
+  <symbol id="i-mark" viewBox="0 0 24 24"><g fill="currentColor"><rect x="3" y="4.5" width="18" height="4" rx="2"/><rect x="3" y="10" width="13" height="4" rx="2"/><rect x="3" y="15.5" width="8" height="4" rx="2"/></g></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></g></symbol>
+  <symbol id="g-terminal" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M7 10l3 2.5L7 15M12.5 15H17"/></g></symbol>
+  <symbol id="g-code" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 7L3.5 12l5 5M15.5 7l5 5-5 5M13.5 5l-3 14"/></g></symbol>
+  <symbol id="g-globe" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.2 3 3.2 15 0 18M12 3c-3.2 3-3.2 15 0 18"/></g></symbol>
+  <symbol id="g-server" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></g></symbol>
+  <symbol id="g-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></g></symbol>
+  <symbol id="g-wifi-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5a14 14 0 0 1 18 0M6 13a9.5 9.5 0 0 1 12 0M9.2 16.4a5 5 0 0 1 5.6 0M12 19.5h.01M4 4l16 16"/></g></symbol>
+  <symbol id="g-log" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h9l4 4v13H6z"/><path d="M14.5 3.5v4.5H19M9 12.5h7M9 16h5"/></g></symbol>
+  <symbol id="g-hand" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></g></symbol>
+</svg>
+<header class="site-header">
+  <nav class="nav" aria-label="Main">
+    <a class="brand" href="/overstay/"><img src="/overstay/favicon.png" width="28" height="28" alt=""><span>Overstay</span></a>
+    <ul class="nav-links">
+      <li><a href="/overstay/how-it-decides/">How it decides</a></li>
+      <li><a href="/overstay/safety/">Safety</a></li>
+      <li><a href="/overstay/guides/">Guides</a></li>
+    </ul>
+    <a class="button secondary small" href="https://github.com/EverydayOpen/overstay" rel="noopener">Source</a>
+    <a class="button small" href="/overstay/download/">Download</a>
+  </nav>
+</header>
+<main id="main" tabindex="-1">
+<article class="read prose guide">
+  <p class="eyebrow"><b>G1</b> · Guide · Checked 2 October 2026 · macOS</p>
+  <h1>Why are node and MCP processes still running after Claude Code or Codex exits?</h1>
+
+  <div class="summary">
+    <h2>The short answer</h2>
+    <ol>
+      <li>Most MCP servers run as child processes of the agent. Ending a process does not end its children, so something has to shut each server down on the way out.</li>
+      <li>When that cleanup does not happen, or the server ignores it, the server keeps running. Its parent is gone, so the system adopts it (process 1, <code>launchd</code> on a Mac) and it shows up in Activity Monitor as a plain <code>node</code>, <code>python3</code> or <code>uvx</code>.</li>
+      <li>Open bug reports describe this for Claude Code and Codex. A crash, a force quit or a closed terminal can skip the cleanup in any agent.</li>
+    </ol>
+  </div>
+
+  <h2 id="start">How an MCP server is started</h2>
+  <p>The Model Context Protocol has a standard way to run a tool server on your own machine, called the stdio transport. The agent <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio" rel="noopener">launches the server as a subprocess</a> and talks to it through the process's standard input and output. That is why your config holds a command such as <code>npx</code>, <code>uvx</code>, <code>node</code> or <code>docker run -i</code>: the agent runs it for you, once per session or per server.</p>
+  <p>Each server is therefore one more process, and often several, because a launcher such as <code>npx</code> or <code>uvx</code> starts the real server as its own child.</p>
+
+  <h2 id="shutdown">How it is meant to stop</h2>
+  <p>The protocol says what a well-behaved client does when it is done with a stdio server. The same page gives the order:</p>
+  <ol>
+    <li>The client closes the input stream to the server.</li>
+    <li>It waits for the server to exit.</li>
+    <li>If the server does not exit in a reasonable time, it escalates, on macOS typically from <code>SIGTERM</code> to <code>SIGKILL</code>.</li>
+  </ol>
+  <p>It also asks servers to meet the client halfway: they <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio" rel="noopener">should exit promptly when their standard input is closed</a>, which it calls the primary graceful-shutdown signal. A server that follows this stops by itself the moment its agent goes away, even if the agent never got to send a signal.</p>
+
+  <h2 id="why">Why some keep running anyway</h2>
+  <ul>
+    <li><b>The agent never ran its cleanup.</b> If the agent crashes, is force-quit, loses its terminal or is killed, nobody closes the pipe or sends a signal. POSIX is explicit that <a href="https://pubs.opengroup.org/onlinepubs/9799919799/functions/_exit.html" rel="noopener">terminating a process does not directly terminate its children</a>; they are re-parented to a system process and carry on.</li>
+    <li><b>The agent's cleanup has a gap.</b> That is what the open reports below describe: servers still running after a normal exit.</li>
+    <li><b>The server does not notice.</b> A Node.js or Python program exits on its own only when nothing is left for it to do. A server that also holds a timer, a socket or child processes of its own can keep running after its input closes, unless its code watches for the end of input and exits.</li>
+    <li><b>Two processes, one stopped.</b> With a launcher in front, or <code>docker run -i</code>, the thing the agent knows about is the launcher. Stopping only that one can leave the real server, or the container, behind.</li>
+  </ul>
+
+  <h2 id="reports">What the bug reports say</h2>
+  <p>Our paraphrase of two public reports, both open when we checked on 2 October 2026. We have not reproduced either.</p>
+  <ul>
+    <li><a href="https://github.com/anthropics/claude-code/issues/1935" rel="noopener">anthropics/claude-code#1935</a>: after exiting Claude Code, its MCP server processes can remain running as orphans and accumulate across sessions. The reporter lists Docker-launched, Python and Node servers.</li>
+    <li><a href="https://github.com/openai/codex/issues/25744" rel="noopener">openai/codex#25744</a>: a long Codex for macOS session accumulated many helper processes and unreaped zombie children, and the Mac became laggy. This one is different in one way that matters: the parent, the Codex app, was still running.</li>
+  </ul>
+  <p>Other reports of the same kind exist, and some are closed. Which agent versions are affected changes with every release, so check the report for your version.</p>
+
+  <h2 id="spot">How to tell a leftover from a live helper</h2>
+  <ul>
+    <li><b>Parent process.</b> A leftover's parent process id (PPID) is <code>1</code>. A helper that still has its agent shows the agent's pid instead. Processes started with <code>nohup</code>, a login item or a service manager also show <code>1</code>, so on its own it proves nothing.</li>
+    <li><b>The command line.</b> A package name such as <code>@modelcontextprotocol/server-…</code>, a name starting with <code>mcp-server-</code> or ending in <code>-mcp</code> is a good sign.</li>
+    <li><b>Age.</b> Started days ago, with no agent session open in that project, is the typical leftover.</li>
+    <li><b>Zombies are a different thing.</b> A zombie (state <code>Z</code>) is already dead and holds almost nothing; only its parent can clear it. Stopping it does nothing.</li>
+  </ul>
+
+  <h2 id="next">What to do about it</h2>
+  <p>Look at them first, then stop them one at a time: <a href="/overstay/guides/find-and-stop-leftover-mcp-servers-mac/">how to find and stop leftover MCP servers on a Mac</a>. Before you stop a Node process you did not start yourself, read <a href="/overstay/guides/is-it-safe-to-kill-orphaned-node-processes/">is it safe to kill orphaned node processes?</a></p>
+  <p>To reduce them: exit the agent normally rather than closing the terminal window or force-quitting, remove servers you do not use from its config, and keep the agent up to date. If a server is yours, make it exit when its input closes.</p>
+
+  <h2 id="overstay">Doing this with Overstay</h2>
+  <p>We make Overstay, a free, open-source Mac app that lists the leftovers (parent gone, a known tool-server signature, no live session in that project, started at least ten minutes ago), shows why each one was listed and stops the ones you choose, politely and one group at a time. It is in development and nothing has run on a real Mac yet. <a href="/overstay/">Learn more</a>. Overstay is not affiliated with or endorsed by the tools it detects.</p>
+
+  <h2 id="sources">Sources</h2>
+  <ul class="sources">
+    <li>Model Context Protocol, specification 2026-07-28: <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio" rel="noopener">Transports, stdio</a> (launch as a subprocess; shutdown order; servers should exit when input closes)</li>
+    <li>The Open Group, POSIX.1-2024: <a href="https://pubs.opengroup.org/onlinepubs/9799919799/functions/_exit.html" rel="noopener"><code>_exit</code></a> (children are inherited by a system process)</li>
+    <li>GitHub: <a href="https://github.com/anthropics/claude-code/issues/1935" rel="noopener">anthropics/claude-code#1935</a> and <a href="https://github.com/openai/codex/issues/25744" rel="noopener">openai/codex#25744</a>, status checked 2 October 2026</li>
+  </ul>
+</article>
+
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-cols">
+      <div>
+        <h2>Product</h2>
+        <ul>
+          <li><a href="/overstay/download/">Download</a></li>
+          <li><a href="/overstay/changelog/">Changelog</a></li>
+          <li><a href="https://github.com/EverydayOpen/overstay" rel="noopener">Source code</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>How it works</h2>
+        <ul>
+          <li><a href="/overstay/how-it-decides/">How it decides</a></li>
+          <li><a href="/overstay/safety/">What it reads, what it never does</a></li>
+          <li><a href="/overstay/safety/#privacy">Privacy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Guides</h2>
+        <ul>
+          <li><a href="/overstay/guides/why-mcp-and-node-processes-keep-running/">Why they keep running</a></li>
+          <li><a href="/overstay/guides/find-and-stop-leftover-mcp-servers-mac/">Find and stop MCP servers</a></li>
+          <li><a href="/overstay/guides/is-it-safe-to-kill-orphaned-node-processes/">Is it safe to stop them?</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Help</h2>
+        <ul>
+          <li><a href="https://github.com/EverydayOpen/overstay/issues" rel="noopener">Report a problem</a></li>
+          <li><a href="https://github.com/EverydayOpen/overstay/issues/new?template=false-positive.yml" rel="noopener">Report a false positive</a></li>
+          <li><a href="https://github.com/EverydayOpen/overstay/security/policy" rel="noopener">Security policy</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="official"><svg aria-hidden="true"><use href="#i-check"/></svg><span>The only official site is https://everydayopen.github.io/overstay. Downloads come only from github.com/EverydayOpen/overstay/releases.</span></p>
+    <p class="fine"><a class="tag plain" href="/overstay/changelog/">1.0 coming soon</a>© 2026 EverydayOpen. Overstay is free and open source under the MIT License.</p>
+    <p class="fine">Overstay is not affiliated with or endorsed by any of the tools it detects. Their names appear only to say what Overstay looks for. Apple, Mac and macOS are trademarks of Apple Inc.</p>
+  </div>
+</footer>
+</body>
+</html>

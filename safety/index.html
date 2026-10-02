@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Safety and privacy: what Overstay reads and never does</title>
+<meta name="description" content="Everything Overstay reads, everything it never does, how a stop works step by step, what its activity log holds, and what this website collects (nothing). Free, open source, offline, no permissions.">
+<link rel="canonical" href="https://everydayopen.github.io/overstay/safety/">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#faf6ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f0d0b" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Overstay">
+<meta property="og:title" content="Safety and privacy: what Overstay reads and never does">
+<meta property="og:description" content="Everything Overstay reads, everything it never does, how a stop works step by step, what its activity log holds, and what this website collects (nothing). Free, open source, offline, no permissions.">
+<meta property="og:url" content="https://everydayopen.github.io/overstay/safety/">
+<meta property="og:image" content="https://everydayopen.github.io/overstay/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Sample data: five raised amber slabs sized by memory. Your AI agents left 9.4 GB running: agent tool servers 3.1 GB, Codex 2.2 GB, browsers 1.4 GB, agent tool servers 1.5 GB, Codex 1.2 GB.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="/overstay/favicon.png">
+<link rel="apple-touch-icon" href="/overstay/apple-touch-icon.png">
+<link rel="alternate" type="application/rss+xml" title="Overstay changelog" href="/overstay/feed.xml">
+<link rel="stylesheet" href="/overstay/styles.css">
+<script src="/overstay/motion.js" defer></script>
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M4.5 19.5h15"/></symbol>
+  <symbol id="i-mark" viewBox="0 0 24 24"><g fill="currentColor"><rect x="3" y="4.5" width="18" height="4" rx="2"/><rect x="3" y="10" width="13" height="4" rx="2"/><rect x="3" y="15.5" width="8" height="4" rx="2"/></g></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></g></symbol>
+  <symbol id="g-terminal" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M7 10l3 2.5L7 15M12.5 15H17"/></g></symbol>
+  <symbol id="g-code" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 7L3.5 12l5 5M15.5 7l5 5-5 5M13.5 5l-3 14"/></g></symbol>
+  <symbol id="g-globe" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.2 3 3.2 15 0 18M12 3c-3.2 3-3.2 15 0 18"/></g></symbol>
+  <symbol id="g-server" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></g></symbol>
+  <symbol id="g-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></g></symbol>
+  <symbol id="g-wifi-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5a14 14 0 0 1 18 0M6 13a9.5 9.5 0 0 1 12 0M9.2 16.4a5 5 0 0 1 5.6 0M12 19.5h.01M4 4l16 16"/></g></symbol>
+  <symbol id="g-log" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h9l4 4v13H6z"/><path d="M14.5 3.5v4.5H19M9 12.5h7M9 16h5"/></g></symbol>
+  <symbol id="g-hand" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></g></symbol>
+</svg>
+<header class="site-header">
+  <nav class="nav" aria-label="Main">
+    <a class="brand" href="/overstay/"><img src="/overstay/favicon.png" width="28" height="28" alt=""><span>Overstay</span></a>
+    <ul class="nav-links">
+      <li><a href="/overstay/how-it-decides/">How it decides</a></li>
+      <li><a href="/overstay/safety/">Safety</a></li>
+      <li><a href="/overstay/guides/">Guides</a></li>
+    </ul>
+    <a class="button secondary small" href="https://github.com/EverydayOpen/overstay" rel="noopener">Source</a>
+    <a class="button small" href="/overstay/download/">Download</a>
+  </nav>
+</header>
+<main id="main" tabindex="-1">
+<article class="read prose">
+  <p class="eyebrow"><b>04</b> · Safety and privacy</p>
+  <h1>What Overstay reads, and what it never does</h1>
+  <p class="lede">Overstay stops processes, so a bug could stop the wrong one. These are the rules it is built under. Most of the mechanical ones are checked by scripts that run in CI and fail the build when code breaks them.</p>
+  <p class="note">Status on 2 October 2026: the detection and planning logic has automated tests. The macOS parts have not been compiled in CI or run on a real Mac yet, so read everything here as the design, not as proof that it works. The changelog will say what testers have tried.</p>
+
+  <div class="summary">
+    <h2>The short version</h2>
+    <ul>
+      <li><b>Processes only.</b> It never deletes, moves, edits or reads the contents of a file.</li>
+      <li><b>Your own processes only,</b> and never anything on the <a href="/overstay/how-it-decides/#protected">protected list</a>.</li>
+      <li><b>Polite first.</b> The gentle signal, children before parents, a five second wait, and a stronger one only when you click for it, one group at a time.</li>
+      <li><b>Nothing leaves your Mac.</b> No network, no account, no telemetry, no permissions.</li>
+      <li><b>No undo.</b> A stopped process is gone, and Overstay says so before you confirm.</li>
+    </ul>
+  </div>
+
+  <h2 id="reads">What it reads</h2>
+  <ul class="rules plain">
+    <li><h3>The process table</h3><p>For every process: id, parent, start time, owner, program path and whether it is a zombie. Only your own processes are ever considered; others are read only to follow a chain of parents.</p></li>
+    <li><h3>Memory</h3><p>The memory footprint of each listed process, shown as "held". It is not a promise of how much memory is free afterwards.</p></li>
+    <li><h3>Arguments and working folder</h3><p>Of all your own processes, because spotting an agent tool needs them. Arguments are read into memory, scrubbed (anything that looks like a key, token, password or credential is replaced), clipped, and shown on your screen. The one exception is Help &gt; Copy Diagnostics, which copies a scrubbed summary to your clipboard only when you choose it; read it before posting.</p></li>
+    <li><h3>Whether a project is a project</h3><p>It looks for a <code>.git</code> entry by asking whether it exists, nothing more. It does not open it.</p></li>
+    <li><h3>A few variable names</h3><p>Whether two well-known variable names are set in a process's environment. Overstay never keeps, shows, logs or copies a value, or the name of any other variable.</p></li>
+  </ul>
+
+  <h2 id="never">What it never does</h2>
+  <ul class="rules plain">
+    <li><h3>Ask for permissions</h3><p>No Full Disk Access, Accessibility, Automation or Screen Recording, no login item and no root helper. It is not sandboxed, because a sandboxed app cannot see other processes, and it needs no entitlement. It sends no notifications.</p></li>
+    <li><h3>Use the network</h3><p>No telemetry, no account, no update check. A script rejects the common networking APIs in CI.</p></li>
+    <li><h3>Change a file</h3><p>The only things it writes are its activity log, a share-card image you save yourself, and its preferences (kept by macOS in the app's defaults).</p></li>
+    <li><h3>Touch what is not yours</h3><p>Not another user's or the system's processes, not your terminal, shell or editor, not a process group, never process 1 or lower, never itself.</p></li>
+    <li><h3>Run a shell or another program</h3><p>No <code>ps</code>, <code>pkill</code>, <code>lsof</code>, no shell, no child process. It reads the process table through the system's own calls.</p></li>
+    <li><h3>Promise what it cannot</h3><p>No undo, no "freed memory", no "session ended". A row says "started 3 days ago", because Overstay cannot know when a session ended.</p></li>
+  </ul>
+
+  <h2 id="stop">How a stop works</h2>
+  <ol class="rules">
+    <li><h3>You confirm exactly what will stop</h3><p>The confirm step lists every process in plain words. The default selection is leftovers only; Maybes are never in a bulk action.</p><code>confirm</code></li>
+    <li><h3>It checks each process again, right before acting</h3><p>Same process id, same start time, same program, same owner, still a leftover. If anything changed (a reused process id, say) it is left alone and logged as changed since the scan.</p><code>re-verify</code></li>
+    <li><h3>The gentle signal, children first</h3><p>The deepest processes first, then their parents.</p><code>SIGTERM</code></li>
+    <li><h3>It waits, then tells you what is left</h3><p>Up to five seconds, returning early when everything has exited. Survivors are listed.</p><code>5 s</code></li>
+    <li><h3>The stronger signal is a separate click</h3><p>Only for one group, only after its own confirmation, never automatic and never in a loop.</p><code>SIGKILL</code></li>
+  </ol>
+  <p>All signalling lives in one source file, <a href="https://github.com/EverydayOpen/overstay/blob/main/Sources/OverstayMac/Signal.swift" rel="noopener"><code>Signal.swift</code></a>, and CI fails if a signal call appears anywhere else. It only ever signals one positive process id greater than 1.</p>
+
+  <h2 id="log">The activity log</h2>
+  <p>Every target of every stop, including skipped and failed ones, is appended to a file in <code>~/Library/Application Support/Overstay/</code>, readable only by you. A line holds the time, the tool, the program name, the process id, the project <b>folder name</b>, the memory, the result and the one-sentence reason. It holds no arguments, no environment and no full paths. A line is written before each signal is sent; if it cannot be written, that signal is not sent.</p>
+
+  <h2 id="privacy">Privacy</h2>
+  <h3>The app</h3>
+  <p>It collects nothing and sends nothing, because it makes no network connection at all. Scrubbed arguments are shown only on your screen; the one exception is Help &gt; Copy Diagnostics, which copies a scrubbed summary to your clipboard only when you choose it. Read it before posting. The share card contains counts, sizes and tool names; folder names appear only if you tick the box, and nothing is shared unless you copy or save the card yourself.</p>
+  <h3>This website</h3>
+  <p>It sets no cookies, runs no analytics, loads no third-party scripts, fonts or images, and makes no request beyond its own files. A strict content policy enforces that in your browser. The site is hosted on GitHub Pages, which keeps its own server logs under <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">GitHub's privacy statement</a>; we do not receive them.</p>
+
+  <h2 id="trust">Why you can check all of this</h2>
+  <ul>
+    <li>It is MIT licensed and has no third-party dependencies in version 1.</li>
+    <li>Safety rules are written down in the repository and the mechanical ones are scripts you can run yourself.</li>
+    <li>Builds come only from <a href="https://github.com/EverydayOpen/overstay/releases" rel="noopener">GitHub Releases</a>, with a checksum in the notes.</li>
+  </ul>
+  <p>To report a vulnerability, or a way to make Overstay stop something it should not, see the <a href="https://github.com/EverydayOpen/overstay/security/policy" rel="noopener">security policy</a>.</p>
+  <p class="note">Overstay is not affiliated with or endorsed by any of the tools it detects.</p>
+</article>
+
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-cols">
+      <div>
+        <h2>Product</h2>
+        <ul>
+          <li><a href="/overstay/download/">Download</a></li>
+          <li><a href="/overstay/changelog/">Changelog</a></li>
+          <li><a href="https://github.com/EverydayOpen/overstay" rel="noopener">Source code</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>How it works</h2>
+        <ul>
+          <li><a href="/overstay/how-it-decides/">How it decides</a></li>
+          <li><a href="/overstay/safety/">What it reads, what it never does</a></li>
+          <li><a href="/overstay/safety/#privacy">Privacy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Guides</h2>
+        <ul>
+          <li><a href="/overstay/guides/why-mcp-and-node-processes-keep-running/">Why they keep running</a></li>
+          <li><a href="/overstay/guides/find-and-stop-leftover-mcp-servers-mac/">Find and stop MCP servers</a></li>
+          <li><a href="/overstay/guides/is-it-safe-to-kill-orphaned-node-processes/">Is it safe to stop them?</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Help</h2>
+        <ul>
+          <li><a href="https://github.com/EverydayOpen/overstay/issues" rel="noopener">Report a problem</a></li>
+          <li><a href="https://github.com/EverydayOpen/overstay/issues/new?template=false-positive.yml" rel="noopener">Report a false positive</a></li>
+          <li><a href="https://github.com/EverydayOpen/overstay/security/policy" rel="noopener">Security policy</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="official"><svg aria-hidden="true"><use href="#i-check"/></svg><span>The only official site is https://everydayopen.github.io/overstay. Downloads come only from github.com/EverydayOpen/overstay/releases.</span></p>
+    <p class="fine"><a class="tag plain" href="/overstay/changelog/">1.0 coming soon</a>© 2026 EverydayOpen. Overstay is free and open source under the MIT License.</p>
+    <p class="fine">Overstay is not affiliated with or endorsed by any of the tools it detects. Their names appear only to say what Overstay looks for. Apple, Mac and macOS are trademarks of Apple Inc.</p>
+  </div>
+</footer>
+</body>
+</html>

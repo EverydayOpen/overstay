@@ -1,0 +1,31 @@
+# Overstay
+
+> Find and stop the processes your AI coding agents left running.
+
+Overstay is a free, open-source Mac app (MIT License; macOS 13 or later, Apple silicon and Intel). It finds the tool servers, headless browsers and helpers that AI coding agents (for example Claude Code and Codex) left running with nothing attached to them, shows how much memory they hold and which project started them, and stops them safely. Overstay is not affiliated with or endorsed by any of those tools; their names appear only to say what it detects.
+
+Status: In development. No public release yet. Nothing has run on a real Mac yet; treat every behaviour described here as the design.
+
+- It reads the process table (memory, parent, start time, working folder, and the scrubbed arguments of your own processes, read in memory to spot agent tools). It asks for no permission.
+- It touches processes, never files. It stops only your own processes, politely first (a gentle signal, children before parents, a short wait), and only after you confirm. A stronger signal is a separate click per group. A stopped process cannot be brought back.
+- A process is a leftover only when it is yours, matches a known tool signature, its parent is gone, no live agent session uses its project and it started at least ten minutes ago. Anything that half fits (an unknown project, a network port, something still writing to its input, a live session, a young process or a generic match) is a Maybe, never part of a bulk stop. Which tool started a group is a best guess until testers confirm it; Cursor, Zed and Windsurf are recognised only as protected hosts.
+- Offline: no network access, no analytics, no accounts, no update check.
+- Every stop is appended to a local activity log with no arguments and no environment.
+- Download: https://everydayopen.github.io/overstay/download/
+- Source and support: https://github.com/EverydayOpen/overstay
+
+## Pages
+
+- [Overstay for Mac: stop what your AI agents left running](https://everydayopen.github.io/overstay/): Overstay finds the tool servers, headless browsers and helpers that AI coding agents such as Claude Code and Codex left running, shows the memory they hold and the project that started them, and stops them safely. Free, open source, offline.
+- [What's New · Overstay](https://everydayopen.github.io/overstay/changelog/): Every Overstay release and what changed in it. Also available as an RSS feed.
+- [Download Overstay for Mac](https://everydayopen.github.io/overstay/download/): Download Overstay for Mac, free: find and stop the processes your AI coding agents left running. Requires macOS 13 or later. Unsigned beta builds come from GitHub Releases only.
+- [Guides: leftover node and MCP processes on a Mac · Overstay](https://everydayopen.github.io/overstay/guides/): Plain answers, with sources, about MCP servers and node processes that AI coding agents leave running on a Mac: why it happens, how to find them, and whether it is safe to stop them.
+- [How to find and stop leftover MCP servers on a Mac](https://everydayopen.github.io/overstay/guides/find-and-stop-leftover-mcp-servers-mac/): Step by step in Terminal: list the MCP servers an AI coding agent left running, check which ones are orphaned and unused, stop them one at a time with the gentle signal, and what not to run.
+- [Is it safe to kill orphaned node processes?](https://everydayopen.github.io/overstay/guides/is-it-safe-to-kill-orphaned-node-processes/): When stopping an orphaned node process on a Mac is fine and when it is not: what an orphan is, what else shows up as one, a five-question check, and why the gentle signal comes first.
+- [Why are node and MCP processes still running after Claude Code or Codex exits?](https://everydayopen.github.io/overstay/guides/why-mcp-and-node-processes-keep-running/): How an MCP server is meant to shut down when its agent quits, why some keep running as orphans, what the open bug reports say, and how to tell a leftover from a process you still need.
+- [How Overstay decides what is a leftover](https://everydayopen.github.io/overstay/how-it-decides/): The rules Overstay uses to list a process as a leftover or a Maybe: your own processes only, a known tool signature, a missing parent, no live session, an age gate, and a protected list that can never be selected.
+- [Safety and privacy: what Overstay reads and never does](https://everydayopen.github.io/overstay/safety/): Everything Overstay reads, everything it never does, how a stop works step by step, what its activity log holds, and what this website collects (nothing). Free, open source, offline, no permissions.
+
+## Feeds
+
+- [Changelog RSS](https://everydayopen.github.io/overstay/feed.xml)

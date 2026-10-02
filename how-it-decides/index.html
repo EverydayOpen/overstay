@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>How Overstay decides what is a leftover</title>
+<meta name="description" content="The rules Overstay uses to list a process as a leftover or a Maybe: your own processes only, a known tool signature, a missing parent, no live session, an age gate, and a protected list that can never be selected.">
+<link rel="canonical" href="https://everydayopen.github.io/overstay/how-it-decides/">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#faf6ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f0d0b" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Overstay">
+<meta property="og:title" content="How Overstay decides what is a leftover">
+<meta property="og:description" content="The rules Overstay uses to list a process as a leftover or a Maybe: your own processes only, a known tool signature, a missing parent, no live session, an age gate, and a protected list that can never be selected.">
+<meta property="og:url" content="https://everydayopen.github.io/overstay/how-it-decides/">
+<meta property="og:image" content="https://everydayopen.github.io/overstay/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Sample data: five raised amber slabs sized by memory. Your AI agents left 9.4 GB running: agent tool servers 3.1 GB, Codex 2.2 GB, browsers 1.4 GB, agent tool servers 1.5 GB, Codex 1.2 GB.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="/overstay/favicon.png">
+<link rel="apple-touch-icon" href="/overstay/apple-touch-icon.png">
+<link rel="alternate" type="application/rss+xml" title="Overstay changelog" href="/overstay/feed.xml">
+<link rel="stylesheet" href="/overstay/styles.css">
+<script src="/overstay/motion.js" defer></script>
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M4.5 19.5h15"/></symbol>
+  <symbol id="i-mark" viewBox="0 0 24 24"><g fill="currentColor"><rect x="3" y="4.5" width="18" height="4" rx="2"/><rect x="3" y="10" width="13" height="4" rx="2"/><rect x="3" y="15.5" width="8" height="4" rx="2"/></g></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></g></symbol>
+  <symbol id="g-terminal" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M7 10l3 2.5L7 15M12.5 15H17"/></g></symbol>
+  <symbol id="g-code" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 7L3.5 12l5 5M15.5 7l5 5-5 5M13.5 5l-3 14"/></g></symbol>
+  <symbol id="g-globe" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.2 3 3.2 15 0 18M12 3c-3.2 3-3.2 15 0 18"/></g></symbol>
+  <symbol id="g-server" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></g></symbol>
+  <symbol id="g-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></g></symbol>
+  <symbol id="g-wifi-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5a14 14 0 0 1 18 0M6 13a9.5 9.5 0 0 1 12 0M9.2 16.4a5 5 0 0 1 5.6 0M12 19.5h.01M4 4l16 16"/></g></symbol>
+  <symbol id="g-log" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h9l4 4v13H6z"/><path d="M14.5 3.5v4.5H19M9 12.5h7M9 16h5"/></g></symbol>
+  <symbol id="g-hand" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></g></symbol>
+</svg>
+<header class="site-header">
+  <nav class="nav" aria-label="Main">
+    <a class="brand" href="/overstay/"><img src="/overstay/favicon.png" width="28" height="28" alt=""><span>Overstay</span></a>
+    <ul class="nav-links">
+      <li><a href="/overstay/how-it-decides/">How it decides</a></li>
+      <li><a href="/overstay/safety/">Safety</a></li>
+      <li><a href="/overstay/guides/">Guides</a></li>
+    </ul>
+    <a class="button secondary small" href="https://github.com/EverydayOpen/overstay" rel="noopener">Source</a>
+    <a class="button small" href="/overstay/download/">Download</a>
+  </nav>
+</header>
+<main id="main" tabindex="-1">
+<article class="read prose">
+  <p class="eyebrow"><b>03</b> · How it decides</p>
+  <h1>How Overstay decides what is a leftover</h1>
+  <p class="lede">A process is listed only when every rule holds. Anything that only half fits is shown as a Maybe, with the reason, and is never part of a bulk stop.</p>
+  <p class="note">These rules describe the code in the repository. Nothing has run on a real Mac yet, so the patterns are checked against real process output only after testers have tried it. The list below will change.</p>
+
+  <div class="summary">
+    <h2>The short version</h2>
+    <ol>
+      <li>It is your process, and not on the protected list.</li>
+      <li>It matches a known agent tool: a tool server, an agent worker or an automation browser.</li>
+      <li>Its parent is gone.</li>
+      <li>No live agent session is using the same project.</li>
+      <li>Its project is known, it does not listen on a network port, and nothing still writes to its input.</li>
+      <li>It started at least ten minutes ago.</li>
+    </ol>
+    <p>All six: a <b>Leftover</b>, pre-selected. The matching and parent rules but not the rest, or only a generic match: a <b>Maybe</b>.</p>
+  </div>
+
+  <h2 id="protected">Before any rule: what can never be selected</h2>
+  <p>Overstay first asks whether a process is allowed to be touched at all. These are protected. They are shown with the reason where relevant and can never be selected, planned or stopped. You can add to the list in Preferences; nothing can remove from it.</p>
+  <pre><code>launchd, kernel_task, WindowServer, loginwindow, Finder, Dock
+anything under /System, /usr/libexec, /usr/sbin, /sbin, /Library/Apple
+anything inside an app bundle (except a recognised automation browser)
+Terminal, iTerm, Ghostty, WezTerm, kitty, Alacritty
+tmux, screen, zellij
+ssh, sshd, ssh-agent, gpg-agent
+Docker, Colima, Lima, OrbStack and VM helpers
+databases (postgres, mysqld, mongod, redis-server, ...)
+language servers (sourcekit-lsp, clangd, gopls, rust-analyzer, ...)
+a process in a terminal session whose leader is still alive
+an agent session or editor host itself (the tool you are working in: Cursor, Zed, Windsurf, VS Code, ...)
+Overstay itself, and every program that started it
+another user's processes</code></pre>
+
+  <h2 id="rules">The rules</h2>
+  <ol class="rules">
+    <li><h3>It matches a known agent tool</h3><p>A signature in a plain list in the source, one line per tool. Tool servers (<code>@modelcontextprotocol/server-*</code>, names starting <code>mcp-server-</code> or ending <code>-mcp</code>, Playwright and DevTools servers), helpers of agent apps, and automation browsers. For tool servers the arguments are searched only when the program is a launcher such as <code>node</code>, <code>npx</code>, <code>uvx</code> or <code>python</code>, so a text editor with "mcp" in a file name never matches.</p><code>signature</code></li>
+    <li><h3>Its parent is gone</h3><p>Its parent is <code>launchd</code>, or everything above it up to a <code>launchd</code> child is itself a matching, unprotected process of yours (the tree an agent left behind). A parent of <code>1</code> alone means nothing, since many apps have it.</p><code>ppid 1</code></li>
+    <li><h3>No live session owns it</h3><p>If a running agent shares its project, it may be in use and becomes a Maybe. Project means its working folder, or the nearest parent folder with a <code>.git</code> entry, found by looking only at whether the entry exists, never at its contents.</p><code>no session</code></li>
+    <li><h3>Nothing points to it being on purpose</h3><p>Its project is known, so a live session can be ruled out. It does not listen on a network port (<code>--port</code>, <code>--host</code>, <code>--sse</code>, a non-stdio <code>--transport</code> or a <code>--listen</code> address), which a server you started yourself might. Nothing else still holds the other end of its input pipe. Any of these makes it a Maybe.</p><code>on purpose?</code></li>
+    <li><h3>It has been there a while</h3><p>Started at least ten minutes ago. You can raise the gate in Preferences; it never drops below one minute.</p><code>≥ 10 min</code></li>
+  </ol>
+  <p>Browsers are the strictest. Your everyday Chrome never matches: an automation browser needs a marker such as Chrome for Testing with <code>--headless</code> or <code>--remote-debugging-pipe</code>, a Playwright or Puppeteer browser, or <code>chrome-headless-shell</code>.</p>
+
+  <h2 id="tiers">The tiers, with an example each</h2>
+  <p>Every row in the app carries a one-sentence reason in these words. The examples use the sample data.</p>
+  <div class="ro card"><b>Agent tool servers · ~/dev/foo</b><span class="tag amber">Leftover</span><p>Parent is gone. Looks like an MCP server. No live session in foo.</p></div>
+  <div class="ro card maybe"><b>Agent tool servers · ~/dev/bar</b><span class="tag amber">Maybe</span><p>Parent is gone. Looks like an MCP server. A live session is using bar, so it may still be needed.</p></div>
+  <div class="ro card maybe"><b>MCP server · ~/dev/baz</b><span class="tag amber">Maybe</span><p>Parent is gone. Looks like an MCP server. Started 4 min ago, under the 10 min age gate.</p></div>
+  <div class="ro card maybe"><b>Agent tool servers · ~/dev/api</b><span class="tag amber">Maybe</span><p>Parent is gone. Looks like an MCP server. It listens on the network, so it may be a server you started on purpose.</p></div>
+  <div class="ro card maybe"><b>Dev server · ~/dev/qux</b><span class="tag amber">Maybe</span><p>Parent is gone. Matches a generic pattern, so Overstay is not sure.</p></div>
+  <div class="ro card other"><b>Not listed</b><span class="tag plain">Ignored</span><p>Not a leftover: its parent is still running. Ignored processes are never shown.</p></div>
+  <div class="ro card other"><b>Not selectable</b><span class="tag plain">Protected</span><p>Protected: inside an app bundle.</p></div>
+  <p>An unknown project (it could not be read, so a live session cannot be ruled out) and something still holding the other end of its input pipe also make a Maybe. Dev servers (Vite, webpack, Next.js, esbuild) match only generically, so they can be a Maybe at best. A Maybe is never pre-selected and never part of a bulk stop. You stop it one at a time, and one that started under 24 hours ago asks for one more confirmation.</p>
+
+  <h2 id="wrong">It got one wrong</h2>
+  <p>A detection rule that lists something you still need is a bug we want to hear about. Open the form, describe what the process was and why you needed it, and never paste secrets.</p>
+  <p class="actions"><a class="button" href="https://github.com/EverydayOpen/overstay/issues/new?template=false-positive.yml" rel="noopener">Report a false positive</a> <a class="button secondary" href="https://github.com/EverydayOpen/overstay/blob/main/Sources/OverstayCore/Classify/Signatures.swift" rel="noopener">Read the signature list</a></p>
+  <p class="note">Overstay is not affiliated with or endorsed by any of the tools it detects. Their names appear only to say what the signatures look for.</p>
+</article>
+
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-cols">
+      <div>
+        <h2>Product</h2>
+        <ul>
+          <li><a href="/overstay/download/">Download</a></li>
+          <li><a href="/overstay/changelog/">Changelog</a></li>
+          <li><a href="https://github.com/EverydayOpen/overstay" rel="noopener">Source code</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>How it works</h2>
+        <ul>
+          <li><a href="/overstay/how-it-decides/">How it decides</a></li>
+          <li><a href="/overstay/safety/">What it reads, what it never does</a></li>
+          <li><a href="/overstay/safety/#privacy">Privacy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Guides</h2>
+        <ul>
+          <li><a href="/overstay/guides/why-mcp-and-node-processes-keep-running/">Why they keep running</a></li>
+          <li><a href="/overstay/guides/find-and-stop-leftover-mcp-servers-mac/">Find and stop MCP servers</a></li>
+          <li><a href="/overstay/guides/is-it-safe-to-kill-orphaned-node-processes/">Is it safe to stop them?</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Help</h2>
+        <ul>
+          <li><a href="https://github.com/EverydayOpen/overstay/issues" rel="noopener">Report a problem</a></li>
+          <li><a href="https://github.com/EverydayOpen/overstay/issues/new?template=false-positive.yml" rel="noopener">Report a false positive</a></li>
+          <li><a href="https://github.com/EverydayOpen/overstay/security/policy" rel="noopener">Security policy</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="official"><svg aria-hidden="true"><use href="#i-check"/></svg><span>The only official site is https://everydayopen.github.io/overstay. Downloads come only from github.com/EverydayOpen/overstay/releases.</span></p>
+    <p class="fine"><a class="tag plain" href="/overstay/changelog/">1.0 coming soon</a>© 2026 EverydayOpen. Overstay is free and open source under the MIT License.</p>
+    <p class="fine">Overstay is not affiliated with or endorsed by any of the tools it detects. Their names appear only to say what Overstay looks for. Apple, Mac and macOS are trademarks of Apple Inc.</p>
+  </div>
+</footer>
+</body>
+</html>
