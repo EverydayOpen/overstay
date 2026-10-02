@@ -202,8 +202,9 @@ h2 code { padding: .04em .3em; font-size: .78em; line-height: 1; }
 .pop-rows code { padding: 0; background: none; font: 500 12px/1 var(--font-mono); color: var(--pop-2); }
 .pop-rows small { grid-column: 2 / span 2; font-size: 11px; color: var(--pop-2); }
 .pop-foot { display: flex; gap: 14px; align-items: center; margin: 8px 0 0; padding-top: 12px; border-top: 1px solid var(--pop-line); font-size: 12px; color: var(--pop-2); }
+.pop-sample { height: 10px; margin: 10px 0 -2px; text-align: center; font: 500 10.5px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--pop-2); }
 .pop-cta { padding: 8px 14px; border-radius: var(--r-btn); color: var(--on-button); font: 600 13px/1 var(--font); background: linear-gradient(var(--button), color-mix(in srgb, var(--button) 88%, #000)); box-shadow: inset 0 1px 0 rgb(255 255 255 / .35), var(--cap); }
-.pop-stop { position: absolute; left: 14px; bottom: 14px; min-height: 0; padding: 8px 14px; font-size: 13px; }
+.pop-stop { position: absolute; left: 14px; bottom: 32px; min-height: 0; padding: 8px 14px; font-size: 13px; }
 .pop-stop[hidden] { display: none; }
 @media (max-width: 899px) {
   .mac, .tokens, .door, .floor { display: none; }
@@ -275,13 +276,13 @@ ol.rules h3::before, ol.rules h4::before { counter-increment: r; content: counte
 
 /* Stop, politely: weight bar, receipt. */
 .slabs { display: flex; gap: 12px; padding-bottom: 8px; perspective: var(--persp-card); }
-.slabs > div { flex: 1 1 64px; min-width: 64px; min-height: 150px; position: relative; padding: 18px 16px 16px; border-radius: var(--r-l); background: linear-gradient(var(--slab-top), var(--slab-bot)); box-shadow: var(--slab); overflow: hidden; }
+.slabs > div { flex: 1 1 0; min-width: 0; min-height: 150px; position: relative; padding: 18px 16px 16px; border-radius: var(--r-l); background: linear-gradient(var(--slab-top), var(--slab-bot)); box-shadow: var(--slab); overflow: hidden; }
 .slabs > div::before { content: ""; position: absolute; inset: 0 0 auto; height: 2px; background: var(--amber); opacity: .9; }
-.slabs > div:nth-child(1) { flex-grow: 3.1; } .slabs > div:nth-child(2) { flex-grow: 2.2; } .slabs > div:nth-child(3) { flex-grow: 1.4; } .slabs > div:nth-child(4) { flex-grow: 1.5; } .slabs > div:nth-child(5) { flex-grow: 1.2; }
-.slabs .label { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slabs > div:nth-child(1) { flex-grow: 3.1; } .slabs > div:nth-child(2) { flex-grow: 2.2; } .slabs > div:nth-child(3) { flex-grow: 1.5; } .slabs > div:nth-child(4) { flex-grow: 1.4; } .slabs > div:nth-child(5) { flex-grow: 1.2; }
+.slabs .label { display: block; overflow-wrap: anywhere; }
 .slabs strong { display: block; margin: 10px 0 4px; font: 600 clamp(22px, 2.6vw, 34px)/1 var(--font-num); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .slabs small { font: 500 12px/1 var(--font-mono); color: var(--text-2); }
-@media (max-width: 640px) { .slabs { flex-wrap: wrap; } .slabs > div { flex-basis: 40%; } }
+@media (max-width: 640px) { .slabs { flex-wrap: wrap; } .slabs > div { flex-basis: 40%; min-width: 64px; } }
 .receipt { margin: 28px 0 0; padding: 14px 18px; border-radius: var(--r-m); background: var(--bg-alt); color: var(--text-2); font: 13px/1.7 var(--font-mono); letter-spacing: 0; box-shadow: var(--z1); }
 .receipt b { color: var(--text); font-weight: 500; }
 
