@@ -1,0 +1,65 @@
+<!--meta {"title": "Why are node and MCP processes still running after Claude Code or Codex exits?", "description": "How an MCP server is meant to shut down when its agent quits, why some keep running as orphans, what the open bug reports say, and how to tell a leftover from a process you still need."}-->
+<article class="read prose guide">
+  <p class="eyebrow"><b>G1</b> · Guide · Checked 2 October 2026 · macOS</p>
+  <h1>Why are node and MCP processes still running after Claude Code or Codex exits?</h1>
+
+  <div class="summary">
+    <h2>The short answer</h2>
+    <ol>
+      <li>Most MCP servers run as child processes of the agent. Ending a process does not end its children, so something has to shut each server down on the way out.</li>
+      <li>When that cleanup does not happen, or the server ignores it, the server keeps running. Its parent is gone, so the system adopts it (process 1, <code>launchd</code> on a Mac) and it shows up in Activity Monitor as a plain <code>node</code>, <code>python3</code> or <code>uvx</code>.</li>
+      <li>Open bug reports describe this for Claude Code and Codex. A crash, a force quit or a closed terminal can skip the cleanup in any agent.</li>
+    </ol>
+  </div>
+
+  <h2 id="start">How an MCP server is started</h2>
+  <p>The Model Context Protocol has a standard way to run a tool server on your own machine, called the stdio transport. The agent <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio">launches the server as a subprocess</a> and talks to it through the process's standard input and output. That is why your config holds a command such as <code>npx</code>, <code>uvx</code>, <code>node</code> or <code>docker run -i</code>: the agent runs it for you, once per session or per server.</p>
+  <p>Each server is therefore one more process, and often several, because a launcher such as <code>npx</code> or <code>uvx</code> starts the real server as its own child.</p>
+
+  <h2 id="shutdown">How it is meant to stop</h2>
+  <p>The protocol says what a well-behaved client does when it is done with a stdio server. The same page gives the order:</p>
+  <ol>
+    <li>The client closes the input stream to the server.</li>
+    <li>It waits for the server to exit.</li>
+    <li>If the server does not exit in a reasonable time, it escalates, on macOS typically from <code>SIGTERM</code> to <code>SIGKILL</code>.</li>
+  </ol>
+  <p>It also asks servers to meet the client halfway: they <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio">should exit promptly when their standard input is closed</a>, which it calls the primary graceful-shutdown signal. A server that follows this stops by itself the moment its agent goes away, even if the agent never got to send a signal.</p>
+
+  <h2 id="why">Why some keep running anyway</h2>
+  <ul>
+    <li><b>The agent never ran its cleanup.</b> If the agent crashes, is force-quit, loses its terminal or is killed, nobody closes the pipe or sends a signal. POSIX is explicit that <a href="https://pubs.opengroup.org/onlinepubs/9799919799/functions/_exit.html">terminating a process does not directly terminate its children</a>; they are re-parented to a system process and carry on.</li>
+    <li><b>The agent's cleanup has a gap.</b> That is what the open reports below describe: servers still running after a normal exit.</li>
+    <li><b>The server does not notice.</b> A Node.js or Python program exits on its own only when nothing is left for it to do. A server that also holds a timer, a socket or child processes of its own can keep running after its input closes, unless its code watches for the end of input and exits.</li>
+    <li><b>Two processes, one stopped.</b> With a launcher in front, or <code>docker run -i</code>, the thing the agent knows about is the launcher. Stopping only that one can leave the real server, or the container, behind.</li>
+  </ul>
+
+  <h2 id="reports">What the bug reports say</h2>
+  <p>Our paraphrase of two public reports, both open when we checked on 2 October 2026. We have not reproduced either.</p>
+  <ul>
+    <li><a href="https://github.com/anthropics/claude-code/issues/1935">anthropics/claude-code#1935</a>: after exiting Claude Code, its MCP server processes can remain running as orphans and accumulate across sessions. The reporter lists Docker-launched, Python and Node servers.</li>
+    <li><a href="https://github.com/openai/codex/issues/25744">openai/codex#25744</a>: a long Codex for macOS session accumulated many helper processes and unreaped zombie children, and the Mac became laggy. This one is different in one way that matters: the parent, the Codex app, was still running.</li>
+  </ul>
+  <p>Other reports of the same kind exist, and some are closed. Which agent versions are affected changes with every release, so check the report for your version.</p>
+
+  <h2 id="spot">How to tell a leftover from a live helper</h2>
+  <ul>
+    <li><b>Parent process.</b> A leftover's parent process id (PPID) is <code>1</code>. A helper that still has its agent shows the agent's pid instead. Processes started with <code>nohup</code>, a login item or a service manager also show <code>1</code>, so on its own it proves nothing.</li>
+    <li><b>The command line.</b> A package name such as <code>@modelcontextprotocol/server-…</code>, a name starting with <code>mcp-server-</code> or ending in <code>-mcp</code> is a good sign.</li>
+    <li><b>Age.</b> Started days ago, with no agent session open in that project, is the typical leftover.</li>
+    <li><b>Zombies are a different thing.</b> A zombie (state <code>Z</code>) is already dead and holds almost nothing; only its parent can clear it. Stopping it does nothing.</li>
+  </ul>
+
+  <h2 id="next">What to do about it</h2>
+  <p>Look at them first, then stop them one at a time: <a href="/guides/find-and-stop-leftover-mcp-servers-mac/">how to find and stop leftover MCP servers on a Mac</a>. Before you stop a Node process you did not start yourself, read <a href="/guides/is-it-safe-to-kill-orphaned-node-processes/">is it safe to kill orphaned node processes?</a></p>
+  <p>To reduce them: exit the agent normally rather than closing the terminal window or force-quitting, remove servers you do not use from its config, and keep the agent up to date. If a server is yours, make it exit when its input closes.</p>
+
+  <h2 id="overstay">Doing this with Overstay</h2>
+  <p>We make Overstay, a free, open-source Mac app that lists the leftovers (parent gone, a known tool-server signature, no live session in that project, started at least ten minutes ago), shows why each one was listed and stops the ones you choose, politely and one group at a time. It is in development and nothing has run on a real Mac yet. <a href="/">Learn more</a>. Overstay is not affiliated with or endorsed by the tools it detects.</p>
+
+  <h2 id="sources">Sources</h2>
+  <ul class="sources">
+    <li>Model Context Protocol, specification 2026-07-28: <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio">Transports, stdio</a> (launch as a subprocess; shutdown order; servers should exit when input closes)</li>
+    <li>The Open Group, POSIX.1-2024: <a href="https://pubs.opengroup.org/onlinepubs/9799919799/functions/_exit.html"><code>_exit</code></a> (children are inherited by a system process)</li>
+    <li>GitHub: <a href="https://github.com/anthropics/claude-code/issues/1935">anthropics/claude-code#1935</a> and <a href="https://github.com/openai/codex/issues/25744">openai/codex#25744</a>, status checked 2 October 2026</li>
+  </ul>
+</article>

@@ -1,0 +1,51 @@
+name: Report a false positive
+description: Overstay listed something that was still needed, or left something out that it should have found.
+title: "False positive: "
+labels: ["false-positive"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. This is the most useful report there is: it becomes a test for the detection rules.
+        Never paste environment variables, tokens or file contents. **Help > Copy Diagnostics** already scrubs
+        argument lists and leaves out the environment; read it once before posting.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What went wrong?
+      options:
+        - Overstay listed a process as a Leftover that was still needed
+        - Overstay listed a process as a Maybe that was clearly fine
+        - Overstay missed a leftover process it should have found
+        - Stopping something went wrong
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What was the process?
+      description: The tool it came from (for example an MCP server), what it was doing, and how you know it was still needed or already finished.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Help > Copy Diagnostics
+      description: Paste the text. It lists each process that matched a detection rule with its tier and the reason.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and chip
+      placeholder: macOS 15.6, Apple silicon
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Overstay version
+      placeholder: 1.0.0-beta.1
+    validations:
+      required: true

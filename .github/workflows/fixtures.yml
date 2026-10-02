@@ -1,0 +1,55 @@
+# Run the real-system tests on GitHub's arm64 and Intel macOS runners and upload what a scan of that runner saw
+# (docs/BUILD_PLAN.md section 6.3 item 5), so the detection rules and the argv/cwd readability VERIFY items are checked
+# against real macOS output without owning a Mac.
+#
+# Using the result: download the fixtures-* artifacts from the run, read diagnostics.txt (counts of processes whose argv,
+# cwd and footprint were readable; one block per process that matched a signature), and settle the VERIFY marks in
+# docs/BUILD_PLAN.md section 12 and the signature table. Real laptops come from beta testers' Help > Copy Diagnostics.
+#
+# The runners are virtual machines with no agent running: expect few or no signature matches except the test's own
+# fixture. The point is the readability counts, orphan reparenting (R11) and that signalling works.
+name: fixtures
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 4 * * 1"   # Mondays: a fresh dump to compare by hand
+
+permissions:
+  contents: read
+
+jobs:
+  dump:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-26, macos-15-intel]   # arm64, and the last Intel image (supported until Aug 2027)
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: swift test (writes diagnostics.txt)
+        run: |
+          mkdir out
+          OVERSTAY_DIAG_OUT="$PWD/out/diagnostics.txt" swift test 2>&1 | tee out/swift-test.log
+          { sw_vers; uname -m; echo "runner image: $ImageOS $ImageVersion"; } > out/about.txt
+
+      - name: Summary
+        if: always()
+        run: |
+          cat out/about.txt || true
+          head -40 out/diagnostics.txt || echo "no diagnostics.txt (the test did not run or was skipped)"
+          grep -E "skipped|XCTSkip" out/swift-test.log || true
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: fixtures-${{ matrix.runner }}
+          path: out/
+          if-no-files-found: error

@@ -1,0 +1,196 @@
+<!--meta {"title": "Overstay for Mac: stop what your AI agents left running", "description": "Overstay finds the tool servers, headless browsers and helpers that AI coding agents such as Claude Code and Codex left running, shows the memory they hold and the project that started them, and stops them safely. Free, open source, offline."}-->
+<section class="hero room" aria-labelledby="hero-h">
+  <div class="wide hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow"><b>01</b> · Leftover-process finder · macOS {{minMacOS}} or later</p>
+      <h1 id="hero-h">Your AI agents <mark>overstayed.</mark></h1>
+      <p class="lede">Overstay finds the tool servers, headless browsers and helpers that AI coding agents such as Claude Code and Codex left running with nothing attached to them, shows what they hold and which project started them, and sends them home.</p>
+      <p class="actions"><a class="button" href="/download/"><svg aria-hidden="true"><use href="#i-down"/></svg><span class="sep"></span>Download free</a> <a class="button secondary" href="https://github.com/{{releasesRepo}}">View source</a></p>
+      <p class="facts">Free · No permissions · No network · {{statusTag}}</p>
+    </div>
+    <div class="stage" data-tilt>
+      <div class="scene" id="hero-scene">
+        <i class="door" aria-hidden="true"></i>
+        <i class="floor" aria-hidden="true"></i>
+        <div class="mac" aria-hidden="true"><div class="lid"><div class="screen"><i class="prompt"></i></div></div><div class="deck"></div></div>
+        <ul class="tokens" aria-hidden="true">
+          <li><code>node</code><b>412 MB</b><span>mcp-server-filesystem</span></li>
+          <li><code>node</code><b>388 MB</b><span>server-github</span></li>
+          <li><code>node</code><b>233 MB</b><span>chrome-devtools-mcp</span></li>
+          <li><code>uvx</code><b>121 MB</b><span>mcp-server-git</span></li>
+          <li><code>python3</code><b>140 MB</b><span>mcp-server-fetch</span></li>
+          <li><code>node</code><b>296 MB</b><span>playwright-mcp</span></li>
+          <li><code>Chrome for Testing</code><b>1.1 GB</b><span>--headless</span></li>
+          <li><code>node</code><b>97 MB</b><span>mcp-server-memory</span></li>
+        </ul>
+        <p class="bar" aria-hidden="true"><b>Overstay</b><span class="badge"><svg aria-hidden="true"><use href="#i-mark"/></svg>183 · 9.4 GB</span><span class="clock">Tue 23:41</span></p>
+        <div class="pop-wrap">
+          <figure class="pop" role="img" aria-label="Illustration with sample data: the Overstay menu bar panel. 183 leftover processes holding 9.4 GB in five groups, the top three shown. Agent tool servers in ~/dev/foo, 61 processes, 3.1 GB, started 3 days ago. Codex in ~/dev/bar, 40 processes, 2.2 GB, started 2 days ago. Headless browsers, 12 processes, 1.4 GB, started 5 hours ago. A Stop 183 button.">
+            <p class="pop-head"><i class="ring"></i><span class="found"><b>183</b> leftover · <b>9.4</b> GB</span><span class="held"><svg aria-hidden="true"><use href="#i-ok"/></svg><span>Stopped <b>183</b>. <b>9.4</b> GB was held.</span></span></p>
+            <ul class="pop-rows">
+              <li><svg aria-hidden="true"><use href="#g-server"/></svg><span><b>Agent tool servers</b> ~/dev/foo</span><code>61 · 3.1 GB</code><small>started 3 days ago</small></li>
+              <li><svg aria-hidden="true"><use href="#g-code"/></svg><span><b>Codex</b> ~/dev/bar</span><code>40 · 2.2 GB</code><small>started 2 days ago</small></li>
+              <li><svg aria-hidden="true"><use href="#g-globe"/></svg><span><b>Headless browsers</b></span><code>12 · 1.4 GB</code><small>started 5 hours ago</small></li>
+              <li><svg aria-hidden="true"><use href="#g-server"/></svg><span>2 more groups</span><code>70 · 2.7 GB</code></li>
+            </ul>
+            <p class="pop-foot"><span class="pop-cta">Stop 183</span><span>Open Overstay</span><span>Quit</span></p>
+          </figure>
+          <button class="button pop-stop" type="button" data-sweep="Reset demo" aria-controls="hero-scene" hidden>Stop 183</button>
+          <p class="sr-only" role="status" aria-live="polite" data-sweep-status></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="caption">Illustration with sample data. Overstay is not affiliated with or endorsed by any of the tools it detects.</p>
+</section>
+
+<section class="wrap strip" aria-label="Facts">
+  <dl class="proof reveal">
+    <div><dt>permissions asked</dt><dd>0</dd></div>
+    <div><dt>network connections</dt><dd>0</dd></div>
+    <div><dt>file that can send a signal</dt><dd>1</dd></div>
+    <div><dt>files deleted or moved</dt><dd>0</dd></div>
+  </dl>
+</section>
+
+<section id="problem" class="wrap">
+  <div class="sec-head">
+    <h2>Activity Monitor shows <code>node</code>. Overstay shows who left it.</h2>
+    <p class="lede">Agents start tool servers, workers and automation browsers. When a session ends, some keep running with nothing attached to them. In a process list they all look alike.</p>
+  </div>
+  <div class="pair">
+    <figure class="am reveal" role="img" aria-label="Illustration: a process list with five anonymous rows. node 412 MB, node 388 MB, Google Chrome for Testing 1.1 GB, python3 140 MB, node 296 MB.">
+      <ul aria-hidden="true">
+        <li><span>node</span><b>412 MB</b></li>
+        <li><span>node</span><b>388 MB</b></li>
+        <li><span>Google Chrome for Testing</span><b>1.1 GB</b></li>
+        <li><span>python3</span><b>140 MB</b></li>
+        <li><span>node</span><b>296 MB</b></li>
+      </ul>
+      <figcaption>Illustration: a process list without Overstay.</figcaption>
+    </figure>
+    <article class="card group reveal" data-tilt>
+      <div class="group-top"><svg aria-hidden="true"><use href="#g-server"/></svg><b>Agent tool servers · ~/dev/foo</b><span class="tag amber">Leftover</span></div>
+      <p class="group-stats"><strong>3.1 GB</strong><span>61 processes · started 3 days ago</span></p>
+      <p class="why">Parent is gone. Looks like an MCP server. No live session in foo.</p>
+    </article>
+  </div>
+  <p class="note">Sample data. The group card is an illustration of the app.</p>
+  <ul class="reports reveal">
+    <li><p>People report that quitting Claude Code can leave the tool servers it started running, and that they pile up with every session.</p><a href="https://github.com/anthropics/claude-code/issues/1935">claude-code#1935 · open</a></li>
+    <li><p>People report that a long Codex for macOS session accumulates helper processes until the whole Mac feels laggy.</p><a href="https://github.com/openai/codex/issues/25744">codex#25744 · open</a></li>
+  </ul>
+  <p class="note">Our paraphrase of two public bug reports, both still open when we checked on 2 October 2026. The reports are theirs; we have not reproduced them. <a href="/guides/why-mcp-and-node-processes-keep-running/">Why this happens</a>.</p>
+</section>
+
+<section id="how" class="wrap">
+  <div class="sec-head">
+    <h2>How it decides.</h2>
+    <p class="lede">A process is listed as a leftover only when all of these hold. A name alone is never enough.</p>
+  </div>
+  <ol class="rules reveal">
+    <li><h3>It matches a known agent tool</h3><p>Tool servers, agent workers and automation browsers, from a list of signatures. Your everyday Chrome is never on it.</p><code>signature</code></li>
+    <li><h3>Its parent is gone</h3><p>A process whose parent exited is adopted by launchd. Many ordinary apps are too, so this counts only together with a match.</p><code>ppid 1</code></li>
+    <li><h3>No live session owns it</h3><p>If a running agent still works in the same project, the process may be in use. Then it is not a leftover.</p><code>no session</code></li>
+    <li><h3>It has been there a while</h3><p>It started at least ten minutes ago.</p><code>≥ 10 min</code></li>
+  </ol>
+  <p class="after">Anything that only half fits is a Maybe: shown, never pre-selected, never in a bulk stop. An unknown project, listening on a network port, or something still writing to its input also make it a Maybe. Your own processes only, and never anything on the protected list. <a href="/how-it-decides/">Read the rules in full</a>.</p>
+</section>
+
+<section id="stop" class="wrap">
+  <div class="sec-head">
+    <h2>Stop, politely.</h2>
+    <p class="lede">Choose a group, read exactly what will stop, confirm. Overstay asks nicely, children before parents, and tells you what is still running.</p>
+  </div>
+  <div class="slabs reveal" data-tilt role="img" aria-label="Sample data: five slabs sized by memory. Agent tool servers in foo 3.1 GB, Codex in bar 2.2 GB, headless browsers 1.4 GB, agent tool servers in baz 1.5 GB, Codex in qux 1.2 GB.">
+    <div><span class="label">Tool servers · foo</span><strong>3.1 GB</strong><small>61 processes</small></div>
+    <div><span class="label">Codex · bar</span><strong>2.2 GB</strong><small>40 processes</small></div>
+    <div><span class="label">Browsers</span><strong>1.4 GB</strong><small>12 processes</small></div>
+    <div><span class="label">Tool servers · baz</span><strong>1.5 GB</strong><small>38 processes</small></div>
+    <div><span class="label">Codex · qux</span><strong>1.2 GB</strong><small>32 processes</small></div>
+  </div>
+  <p class="receipt reveal"><b>SIGTERM</b> first · children before parents · waits up to <b>5 s</b> · survivors reported · <b>SIGKILL</b> only when you ask, one group at a time</p>
+  <p class="note">Sample data. There is no undo: anything unsaved inside a stopped process is lost, and Overstay says so before you confirm.</p>
+</section>
+
+<section id="safety" class="wrap">
+  <div class="sec-head">
+    <h2>What it reads. What it never does.</h2>
+    <p class="lede">It touches processes, never files. The rules are written down, and a check in CI fails the build when code breaks one of the mechanical ones.</p>
+  </div>
+  <div class="ledger reveal">
+    <div>
+      <p class="label">Reads</p>
+      <ul class="rules plain">
+        <li><h3>The process table</h3><p>Process id, parent, start time, owner and program path.</p></li>
+        <li><h3>Memory</h3><p>The memory footprint of each process.</p></li>
+        <li><h3>Your own processes</h3><p>Their working folder and arguments, read in memory to spot agent tools, with anything that looks like a secret scrubbed before it is shown.</p></li>
+        <li><h3>A few variable names</h3><p>Whether certain well-known environment variables are set. Never their values.</p></li>
+      </ul>
+    </div>
+    <div>
+      <p class="label">Never</p>
+      <ul class="rules plain">
+        <li><h3>Ask for permissions or a password</h3><p>No Full Disk Access, Accessibility, Automation or root helper.</p></li>
+        <li><h3>Connect to a network</h3><p>No telemetry, no account, no update check.</p></li>
+        <li><h3>Read, move, edit or delete a file</h3><p>It writes only its activity log, a share card you save yourself, and its preferences (kept by macOS in the app's defaults).</p></li>
+        <li><h3>Touch what is not yours</h3><p>No other user's or system processes, no terminal or editor with a live session, no process group.</p></li>
+        <li><h3>Promise an undo</h3><p>A stopped process is gone. Overstay says "held", never "freed".</p></li>
+      </ul>
+    </div>
+  </div>
+  <p class="after"><a href="/safety/">Every rule, and what the log holds</a>.</p>
+</section>
+
+<section id="privacy" class="wrap">
+  <div class="sec-head">
+    <h2>Nothing leaves your Mac.</h2>
+    <p class="lede">Overstay has no server to talk to. This website has no analytics, no cookies and no third-party requests.</p>
+  </div>
+  <ul class="privacy reveal">
+    <li><svg aria-hidden="true"><use href="#g-wifi-off"/></svg><h3>No network</h3><p>No telemetry, no account, no update check. A check in CI fails the build if a networking API appears.</p></li>
+    <li><svg aria-hidden="true"><use href="#g-lock"/></svg><h3>No permissions</h3><p>Nothing to grant in System Settings, and no elevated rights.</p></li>
+    <li><svg aria-hidden="true"><use href="#g-log"/></svg><h3>A local log</h3><p>Every stop is appended to a file only you can read: tool, program name, process id, project folder name, result. No arguments, no environment.</p></li>
+    <li><svg aria-hidden="true"><use href="#g-hand"/></svg><h3>Names off by default</h3><p>The share card shows counts and sizes. Project names appear only if you tick the box.</p></li>
+  </ul>
+</section>
+
+<section id="guides" class="wrap">
+  <div class="sec-head">
+    <h2>Guides.</h2>
+    <p class="lede">Plain answers to the questions people search for, with sources. Each works without Overstay.</p>
+  </div>
+  <ul class="guides reveal">
+    <li><a href="/guides/why-mcp-and-node-processes-keep-running/"><code>G1</code><span><b>Why are node and MCP processes still running after Claude Code or Codex exits?</b>How a tool server is meant to shut down, and why some don't.</span><i aria-hidden="true">→</i></a></li>
+    <li><a href="/guides/find-and-stop-leftover-mcp-servers-mac/"><code>G2</code><span><b>How to find and stop leftover MCP servers on Mac</b>With Terminal, step by step, one process at a time.</span><i aria-hidden="true">→</i></a></li>
+    <li><a href="/guides/is-it-safe-to-kill-orphaned-node-processes/"><code>G3</code><span><b>Is it safe to kill orphaned node processes?</b>When yes, when no, and what to check first.</span><i aria-hidden="true">→</i></a></li>
+  </ul>
+</section>
+
+<section id="faq" class="wrap">
+  <div class="faq">
+    <div class="faq-head">
+      <p class="eyebrow"><b>02</b> · Questions</p>
+      <h2>Before you try it.</h2>
+      <p class="lede">Short answers. The long ones are in the guides and on the safety page.</p>
+    </div>
+    <div class="faq-list reveal">
+      <details><summary>Will this break my build?</summary><p>Overstay lists only processes whose parent is gone and that no live agent session is using, and it never pre-selects a Maybe. Even so, a stopped process cannot be brought back, so anything unsaved inside it is lost. The confirm step lists exactly what will stop before you agree.</p></details>
+      <details><summary>Why not just run pkill node?</summary><p>pkill matches by name. It also stops the dev server you meant to keep and the helpers of an agent session that is still working. Overstay checks which tool started a process and whether anything still owns it, then checks each one again right before asking it to stop.</p></details>
+      <details><summary>What is a Maybe?</summary><p>A process that only half fits: it matches a rule, but a live session might still use it, it is young, its project is unknown, it listens on a network port, something is still writing to its input, or the match is generic. Maybes are shown with the reason, never pre-selected and never part of a bulk stop. Anything under 24 hours old asks for one more confirmation.</p></details>
+      <details><summary>Which tools does it recognise?</summary><p>Tool servers (MCP and similar), automation browsers and a few agent helpers such as the ones Codex starts. Which tool started a group is a best guess until testers confirm it on real Macs. Cursor, Zed, Windsurf, VS Code and the agent sessions themselves are recognised only so they are protected and never listed. The names are there only to say what Overstay looks for. Overstay is not affiliated with or endorsed by any of them, and ships no vendor logos. The list is plain data in the source, one line per tool.</p></details>
+      <details><summary>Does it work on my Mac?</summary><p>It targets macOS {{minMacOS}} or later, Apple silicon and Intel. Nothing has run on a real Mac yet; the tester beta is how we find out, and the changelog will say what was tried.</p></details>
+      <details><summary>Is it really free?</summary><p>Yes. MIT licence, no account, no trial, no paid tier. The source is on <a href="https://github.com/{{releasesRepo}}">GitHub</a>.</p></details>
+      <details><summary>Why is the app unsigned?</summary><p>Until there is a Developer ID, public builds are unsigned betas, so macOS asks for one extra step the first time you open it. The <a href="/download/">download page</a> shows it, with a checksum to compare.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="finale room" aria-labelledby="finale-h">
+  <div class="wrap">
+    <div class="podium"><img class="icon" src="/icon.png" width="176" height="176" alt="Overstay app icon" loading="lazy" decoding="async"></div>
+    <h2 id="finale-h">Send them home. It's free.</h2>
+    <p class="actions"><a class="button" href="/download/"><svg aria-hidden="true"><use href="#i-down"/></svg><span class="sep"></span>Download free</a> <a class="button secondary" href="https://github.com/{{releasesRepo}}">View source</a></p>
+    <p class="facts">macOS {{minMacOS}} or later · Apple silicon and Intel · MIT licence · {{statusShort}}</p>
+  </div>
+</section>

@@ -1,0 +1,209 @@
+# Window captures of every screen, light and dark, as the `screens` artifact (<screen>-<look>.png), and the README hero's
+# frames as the `hero-frames` artifact. A Debug build opens each screen with `-demoScreen <name>` (App/Demo.swift): a
+# synthetic process table built in Core (DemoBackend), so nothing real is read or signalled. Nothing is committed or
+# published from here; the lead picks what goes into site/static/shots/ and the README.
+#
+# Not captured here, and said so in the README: the real menu bar item. The `popover` screens are the popover view in an
+# ordinary window; `menuBar` puts the app's own label on a drawn strip above it (VERIFY the real item cannot be captured
+# headlessly).
+name: screens
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ["App/**", "Sources/**", ".github/workflows/screens.yml"]
+
+permissions:
+  contents: read
+
+env:
+  APP: Overstay
+  XCODEGEN: "2.46.0"   # checksum-pinned, same pin as ci.yml, beta.yml and release.yml: bump all four together
+  XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  capture:
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode 26
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app && xcodebuild -version
+
+      - name: Generate project (XcodeGen, checksum-pinned)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN/xcodegen.zip"
+          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          test -d "$RUNNER_TEMP/xcodegen/share/xcodegen/SettingPresets"   # without them xcodegen only prints a warning
+          "$RUNNER_TEMP/xcodegen/bin/xcodegen" generate
+
+      # Demo mode exists only with DEBUG, set explicitly so a preset change can't turn every capture into the real app.
+      # Ad-hoc signed like beta.yml, this runner's arch only.
+      - name: Build (Debug)
+        run: |
+          xcodebuild -project Overstay.xcodeproj -scheme Overstay -configuration Debug \
+            -destination 'platform=macOS,arch=arm64' -derivedDataPath build/dd \
+            SWIFT_ACTIVE_COMPILATION_CONDITIONS=DEBUG \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="-" DEVELOPMENT_TEAM="" ENABLE_HARDENED_RUNTIME=NO build
+
+      # `open` launches and activates the app, so windows are captured active. The window number and bounds come from the
+      # window server by owner name (no Screen Recording needed for that). The widest window no wider than <max> wins, so
+      # a sheet (its own, smaller window) never beats the window it hangs from, and the popover screens' narrow window
+      # is told apart from the main window, which the app also opens.
+      - name: Capture helpers
+        run: |
+          cat > "$RUNNER_TEMP/window.swift" <<'EOF'
+          import CoreGraphics
+          CGWarpMouseCursorPosition(.zero)   // pointer out of the window: no hover state in a capture
+          let arguments = CommandLine.arguments
+          let widest = arguments.count > 2 ? Double(arguments[2]) ?? .infinity : .infinity
+          let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+          var best: (id: Int, rect: CGRect)?
+          for window in windows where window[kCGWindowOwnerName as String] as? String == arguments[1] && window[kCGWindowLayer as String] as? Int == 0 {
+              guard let bounds = window[kCGWindowBounds as String], let rect = CGRect(dictionaryRepresentation: bounds as! CFDictionary),
+                    rect.width <= widest, rect.width * rect.height > (best.map { $0.rect.width * $0.rect.height } ?? 0) else { continue }
+              best = (window[kCGWindowNumber as String] as? Int ?? 0, rect)
+          }
+          if let best { print(best.id, Int(best.rect.minX), Int(best.rect.minY), Int(best.rect.width), Int(best.rect.height)) }
+          EOF
+          xcrun swiftc "$RUNNER_TEMP/window.swift" -o "$RUNNER_TEMP/window"
+          cat > "$RUNNER_TEMP/lib.sh" <<'EOF'
+          app="build/dd/Build/Products/Debug/$APP.app"
+          win="$RUNNER_TEMP/window"
+          # launch <screen> <look> [scenario]
+          launch() {
+            local args=(-demoScreen "$1" -demoAppearance "$2")
+            if [ -n "${3:-}" ]; then args+=(-demo "$3"); fi
+            open -n "$app" --args "${args[@]}"
+          }
+          # find_window <max width>: waits up to 30 s, sets $info to "id x y w h"
+          find_window() {
+            info=""
+            for _ in $(seq 60); do info=$("$win" "$APP" "$1"); [ -n "$info" ] && return 0; sleep 0.5; done
+            return 1
+          }
+          quit() {
+            pkill -x "$APP" || true
+            while pgrep -x "$APP" > /dev/null; do sleep 0.2; done
+          }
+          EOF
+
+      - name: Capture screens
+        run: |
+          source "$RUNNER_TEMP/lib.sh"
+          mkdir -p screens
+          # No mouse or trackpad on the runner, so macOS shows always-on legacy scroll bars. Each screen is a fresh
+          # launch, which reads the global domain.
+          defaults write -g AppleShowScrollBars -string WhenScrolling
+          # name|screen|scenario (empty: the screen's default)|max window width|also capture the screen rect (sheets)
+          # The share card is rendered by the app itself in the next step (-demoShareOut), not captured here.
+          list='firstRun|firstRun||99999|0
+          popover|popover||420|0
+          popoverQuiet|popover|quiet|420|0
+          menuBar|menuBar||500|0
+          groups|groups||99999|0
+          groupsQuiet|groups|quiet|99999|0
+          groupsMaybe|groups|maybe-only|99999|0
+          detail|detail||99999|0
+          stopSheet|stopSheet||99999|1
+          running|running||99999|1
+          result|result||99999|1
+          resultSurvivors|result|survivors|99999|1
+          edge|edge||99999|1
+          activity|activity||99999|0
+          preferences|preferences||99999|1'
+          for look in light dark; do
+            for entry in $list; do
+              IFS='|' read -r name screen scenario max region <<< "$entry"   # empty fields stay empty: '|' is not whitespace
+              launch "$screen" "$look" "$scenario"
+              if ! find_window "$max"; then
+                screencapture -x "screens/no-window-$name.png"
+                echo "::error::No $APP window for $name ($look) within 30 s"
+                exit 1
+              fi
+              set -- $info
+              sleep 5   # scan, stop flow, entrance animations
+              screencapture -x -l"$1" "screens/$name-$look.png"
+              if [ "$region" = 1 ]; then
+                # A sheet may not be part of a single-window capture (VERIFY): the window's screen rect has it.
+                set -- $("$win" "$APP" "$max")
+                screencapture -x -R "$2,$3,$4,$5" "screens/$name-$look-region.png"
+              fi
+              quit
+            done
+          done
+          ls -l screens
+
+      # The README hero (BUILD_PLAN §9): drawn menu bar with the amber badge, the popover, the collapse, the share card.
+      # The collapse is a burst of screen-rect captures of the real window while `hero` runs (idle, Stop, a 3 s run, the
+      # result), timestamped, so the frames are real animation, not a re-enactment. screencapture costs 100-250 ms per
+      # call (VERIFY), so expect 5-8 frames per second; frames.ffconcat carries each frame's real duration.
+      - name: Hero frames
+        run: |
+          source "$RUNNER_TEMP/lib.sh"
+          mkdir -p hero-frames/collapse
+          cp screens/menuBar-dark.png hero-frames/01-menubar.png
+          cp screens/popover-dark.png hero-frames/02-popover.png
+          launch hero dark
+          find_window 99999 || { echo "::error::No $APP window for hero"; exit 1; }
+          set -- $info
+          python3 - "$2,$3,$4,$5" hero-frames/collapse <<'PY'
+          import subprocess, sys, time
+          rect, out = sys.argv[1], sys.argv[2]
+          start = time.monotonic()
+          stamps = []
+          while time.monotonic() - start < 10:
+              stamps.append(time.monotonic() - start)
+              subprocess.run(["screencapture", "-x", "-R", rect, "%s/f%03d.png" % (out, len(stamps) - 1)], check=True)
+          end = time.monotonic() - start
+          with open(out + "/frames.ffconcat", "w") as f:
+              f.write("ffconcat version 1.0\n")
+              for i, t in enumerate(stamps):
+                  f.write("file 'f%03d.png'\nduration %.3f\n" % (i, (stamps[i + 1] if i + 1 < len(stamps) else end) - t))
+              f.write("file 'f%03d.png'\n" % (len(stamps) - 1))   # the concat demuxer drops the last duration unless the file repeats
+          PY
+          quit
+          out="$PWD/hero-frames/04-share.png"
+          open -n "$app" --args -demoScreen share -demoShareOut "$out"
+          for _ in $(seq 60); do [ -s "$out" ] && break; sleep 0.5; done
+          [ -s "$out" ] || { echo "::error::The share card was not written"; exit 1; }
+          cp "$out" screens/share.png
+          quit
+          ls -l hero-frames
+          ls hero-frames/collapse | wc -l
+
+      # Best effort: Homebrew's ffmpeg bottle is the one unpinned download in this workflow (VERIFY it is quick enough),
+      # so a failure here must not fail the captures. The frames above are the deliverable.
+      - name: Hero GIF (best effort)
+        continue-on-error: true
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+        run: |
+          command -v ffmpeg > /dev/null || brew install ffmpeg
+          ffmpeg -y -loglevel error -f concat -i hero-frames/collapse/frames.ffconcat \
+            -vf "fps=12,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse" \
+            hero-frames/collapse.gif
+          ls -l hero-frames/collapse.gif
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: screens
+          path: screens/
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: hero-frames
+          path: hero-frames/
+          if-no-files-found: warn

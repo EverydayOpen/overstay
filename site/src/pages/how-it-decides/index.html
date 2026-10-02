@@ -1,0 +1,62 @@
+<!--meta {"title": "How Overstay decides what is a leftover", "description": "The rules Overstay uses to list a process as a leftover or a Maybe: your own processes only, a known tool signature, a missing parent, no live session, an age gate, and a protected list that can never be selected."}-->
+<article class="read prose">
+  <p class="eyebrow"><b>03</b> · How it decides</p>
+  <h1>How Overstay decides what is a leftover</h1>
+  <p class="lede">A process is listed only when every rule holds. Anything that only half fits is shown as a Maybe, with the reason, and is never part of a bulk stop.</p>
+  <p class="note">These rules describe the code in the repository. Nothing has run on a real Mac yet, so the patterns are checked against real process output only after testers have tried it. The list below will change.</p>
+
+  <div class="summary">
+    <h2>The short version</h2>
+    <ol>
+      <li>It is your process, and not on the protected list.</li>
+      <li>It matches a known agent tool: a tool server, an agent worker or an automation browser.</li>
+      <li>Its parent is gone.</li>
+      <li>No live agent session is using the same project.</li>
+      <li>Its project is known, it does not listen on a network port, and nothing still writes to its input.</li>
+      <li>It started at least ten minutes ago.</li>
+    </ol>
+    <p>All six: a <b>Leftover</b>, pre-selected. The matching and parent rules but not the rest, or only a generic match: a <b>Maybe</b>.</p>
+  </div>
+
+  <h2 id="protected">Before any rule: what can never be selected</h2>
+  <p>Overstay first asks whether a process is allowed to be touched at all. These are protected. They are shown with the reason where relevant and can never be selected, planned or stopped. You can add to the list in Preferences; nothing can remove from it.</p>
+  <pre><code>launchd, kernel_task, WindowServer, loginwindow, Finder, Dock
+anything under /System, /usr/libexec, /usr/sbin, /sbin, /Library/Apple
+anything inside an app bundle (except a recognised automation browser)
+Terminal, iTerm, Ghostty, WezTerm, kitty, Alacritty
+tmux, screen, zellij
+ssh, sshd, ssh-agent, gpg-agent
+Docker, Colima, Lima, OrbStack and VM helpers
+databases (postgres, mysqld, mongod, redis-server, ...)
+language servers (sourcekit-lsp, clangd, gopls, rust-analyzer, ...)
+a process in a terminal session whose leader is still alive
+an agent session or editor host itself (the tool you are working in: Cursor, Zed, Windsurf, VS Code, ...)
+Overstay itself, and every program that started it
+another user's processes</code></pre>
+
+  <h2 id="rules">The rules</h2>
+  <ol class="rules">
+    <li><h3>It matches a known agent tool</h3><p>A signature in a plain list in the source, one line per tool. Tool servers (<code>@modelcontextprotocol/server-*</code>, names starting <code>mcp-server-</code> or ending <code>-mcp</code>, Playwright and DevTools servers), helpers of agent apps, and automation browsers. For tool servers the arguments are searched only when the program is a launcher such as <code>node</code>, <code>npx</code>, <code>uvx</code> or <code>python</code>, so a text editor with "mcp" in a file name never matches.</p><code>signature</code></li>
+    <li><h3>Its parent is gone</h3><p>Its parent is <code>launchd</code>, or everything above it up to a <code>launchd</code> child is itself a matching, unprotected process of yours (the tree an agent left behind). A parent of <code>1</code> alone means nothing, since many apps have it.</p><code>ppid 1</code></li>
+    <li><h3>No live session owns it</h3><p>If a running agent shares its project, it may be in use and becomes a Maybe. Project means its working folder, or the nearest parent folder with a <code>.git</code> entry, found by looking only at whether the entry exists, never at its contents.</p><code>no session</code></li>
+    <li><h3>Nothing points to it being on purpose</h3><p>Its project is known, so a live session can be ruled out. It does not listen on a network port (<code>--port</code>, <code>--host</code>, <code>--sse</code>, a non-stdio <code>--transport</code> or a <code>--listen</code> address), which a server you started yourself might. Nothing else still holds the other end of its input pipe. Any of these makes it a Maybe.</p><code>on purpose?</code></li>
+    <li><h3>It has been there a while</h3><p>Started at least ten minutes ago. You can raise the gate in Preferences; it never drops below one minute.</p><code>≥ 10 min</code></li>
+  </ol>
+  <p>Browsers are the strictest. Your everyday Chrome never matches: an automation browser needs a marker such as Chrome for Testing with <code>--headless</code> or <code>--remote-debugging-pipe</code>, a Playwright or Puppeteer browser, or <code>chrome-headless-shell</code>.</p>
+
+  <h2 id="tiers">The tiers, with an example each</h2>
+  <p>Every row in the app carries a one-sentence reason in these words. The examples use the sample data.</p>
+  <div class="ro card"><b>Agent tool servers · ~/dev/foo</b><span class="tag amber">Leftover</span><p>Parent is gone. Looks like an MCP server. No live session in foo.</p></div>
+  <div class="ro card maybe"><b>Agent tool servers · ~/dev/bar</b><span class="tag amber">Maybe</span><p>Parent is gone. Looks like an MCP server. A live session is using bar, so it may still be needed.</p></div>
+  <div class="ro card maybe"><b>MCP server · ~/dev/baz</b><span class="tag amber">Maybe</span><p>Parent is gone. Looks like an MCP server. Started 4 min ago, under the 10 min age gate.</p></div>
+  <div class="ro card maybe"><b>Agent tool servers · ~/dev/api</b><span class="tag amber">Maybe</span><p>Parent is gone. Looks like an MCP server. It listens on the network, so it may be a server you started on purpose.</p></div>
+  <div class="ro card maybe"><b>Dev server · ~/dev/qux</b><span class="tag amber">Maybe</span><p>Parent is gone. Matches a generic pattern, so Overstay is not sure.</p></div>
+  <div class="ro card other"><b>Not listed</b><span class="tag plain">Ignored</span><p>Not a leftover: its parent is still running. Ignored processes are never shown.</p></div>
+  <div class="ro card other"><b>Not selectable</b><span class="tag plain">Protected</span><p>Protected: inside an app bundle.</p></div>
+  <p>An unknown project (it could not be read, so a live session cannot be ruled out) and something still holding the other end of its input pipe also make a Maybe. Dev servers (Vite, webpack, Next.js, esbuild) match only generically, so they can be a Maybe at best. A Maybe is never pre-selected and never part of a bulk stop. You stop it one at a time, and one that started under 24 hours ago asks for one more confirmation.</p>
+
+  <h2 id="wrong">It got one wrong</h2>
+  <p>A detection rule that lists something you still need is a bug we want to hear about. Open the form, describe what the process was and why you needed it, and never paste secrets.</p>
+  <p class="actions"><a class="button" href="{{falsePositiveURL}}">Report a false positive</a> <a class="button secondary" href="https://github.com/{{releasesRepo}}/blob/main/Sources/OverstayCore/Classify/Signatures.swift">Read the signature list</a></p>
+  <p class="note">Overstay is not affiliated with or endorsed by any of the tools it detects. Their names appear only to say what the signatures look for.</p>
+</article>

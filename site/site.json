@@ -1,0 +1,10 @@
+{
+  "name": "Overstay",
+  "baseURL": "https://everydayopen.github.io/overstay",
+  "tagline": "Find and stop the processes your AI coding agents left running.",
+  "releasesRepo": "EverydayOpen/overstay",
+  "dmgName": "Overstay.dmg",
+  "minMacOS": "13",
+  "owner": "EverydayOpen",
+  "placeholders": []
+}

@@ -1,0 +1,71 @@
+<!--meta {"title": "How to find and stop leftover MCP servers on a Mac", "description": "Step by step in Terminal: list the MCP servers an AI coding agent left running, check which ones are orphaned and unused, stop them one at a time with the gentle signal, and what not to run."}-->
+<article class="read prose guide">
+  <p class="eyebrow"><b>G2</b> · Guide · Checked 2 October 2026 · macOS 13 or later</p>
+  <h1>How to find and stop leftover MCP servers on a Mac</h1>
+
+  <div class="summary">
+    <h2>The short answer</h2>
+    <ol>
+      <li>List processes with their parent and age, and keep the ones whose command line mentions an MCP server.</li>
+      <li>A leftover has parent <code>1</code> and no agent session open in its project.</li>
+      <li>Stop each one with plain <code>kill &lt;pid&gt;</code>, wait a few seconds and check again. Reach for <code>kill -9</code> last.</li>
+    </ol>
+    <p>Everything below uses tools that ship with macOS. It works without Overstay.</p>
+  </div>
+
+  <p class="note">Command lines can contain API keys and other secrets that were passed as arguments. Read the output before you paste it into a public issue or chat, and remove anything private.</p>
+
+  <h2 id="list">1. List the candidates</h2>
+  <pre><code>ps -axww -o pid,ppid,etime,rss,command | grep -E 'mcp|modelcontextprotocol' | grep -v grep</code></pre>
+  <p>The columns are the process id (<code>pid</code>), its parent (<code>ppid</code>), how long it has been running (<code>etime</code>), its resident memory in kilobytes (<code>rss</code>) and the full command. <code>-ww</code> stops the command being cut at the width of the window. Run <code>man ps</code> for the rest.</p>
+  <p>This lists servers that belong to agents you are using right now as well as leftovers. The next step separates them.</p>
+
+  <h2 id="orphans">2. Keep the orphans</h2>
+  <pre><code>ps -axww -o pid,ppid,etime,rss,command | awk '$2 == 1 &amp;&amp; /mcp|modelcontextprotocol/'</code></pre>
+  <p>A parent id of <code>1</code> means the process was adopted by <code>launchd</code>: whatever started it has exited. That is the mark of a leftover, but not proof, because things you start on purpose with <code>nohup</code> or as a login item look the same. This filter also misses servers whose command line has no "mcp" in it, so read the full list once.</p>
+
+  <h2 id="where">3. Find out which project it belongs to</h2>
+  <pre><code>lsof -a -d cwd -p 12345</code></pre>
+  <p>Replace <code>12345</code> with the pid. The <code>NAME</code> column is the folder the process was started in. If an agent session is open in that folder right now, leave its servers alone: they may be in use.</p>
+
+  <h2 id="docker">If the command starts with docker</h2>
+  <p>A server launched with <code>docker run -i</code> is a <code>docker</code> client process plus a container. Stopping the client does not necessarily stop the container. List containers with <code>docker ps</code> and stop one with <code>docker stop &lt;container&gt;</code> (<a href="https://docs.docker.com/reference/cli/docker/container/stop/">Docker's reference</a>). Check that it is not a container you started yourself first.</p>
+
+  <h2 id="stop">4. Stop one, politely</h2>
+  <pre><code>kill 12345
+sleep 5
+ps -p 12345 -o pid,ppid,etime,command</code></pre>
+  <p><code>kill</code> with no option sends <code>SIGTERM</code>, the request to quit. Most servers handle it and exit. If <code>ps</code> prints nothing, it is gone. If it is still there after a few seconds, look at it again before you escalate.</p>
+  <p>Do one at a time. Some servers have child processes of their own; stopping a parent can leave its children behind with parent <code>1</code>, so list again afterwards and stop those the same way.</p>
+  <p>As a last resort for a process that ignores <code>SIGTERM</code>:</p>
+  <pre><code>kill -9 12345</code></pre>
+  <p><code>SIGKILL</code> cannot be caught. The process gets no chance to close files, remove lock files or finish writing, so use it only when you know nothing there matters.</p>
+
+  <h2 id="dont">What not to run</h2>
+  <ul>
+    <li><b><code>pkill -f mcp</code>, <code>pkill node</code>, <code>killall node</code>.</b> These match by name, so they also stop the dev servers, build tools and editor helpers you are using, and the servers of sessions that are still working.</li>
+    <li><b><code>kill -9</code> as the first move.</b> It skips every chance at a clean exit.</li>
+    <li><b><code>kill 0</code>, <code>kill -9 -1</code> or a negative pid.</b> They signal a whole process group, or every process you are allowed to signal, not one.</li>
+    <li><b>Anything run with <code>sudo</code> on a process you did not start.</b> System and other users' processes are not leftovers.</li>
+  </ul>
+
+  <h2 id="zombies">Zombies cannot be stopped</h2>
+  <p>If <code>ps</code> shows the state <code>Z</code> (add <code>stat</code> to the <code>-o</code> list), the process has already exited and is waiting for its parent to collect its exit status. It holds almost nothing and <code>kill</code> does nothing to it. Only the parent clears it, usually when the parent exits. <a href="/guides/why-mcp-and-node-processes-keep-running/">Why that happens</a>.</p>
+
+  <h2 id="prevent">Keeping them from piling up</h2>
+  <ul>
+    <li>Exit the agent normally rather than closing the terminal window or force-quitting.</li>
+    <li>Remove servers you do not use from the agent's configuration.</li>
+    <li>Keep the agent and its servers up to date, and check the agent's issue tracker for your version.</li>
+  </ul>
+
+  <h2 id="overstay">Doing this with Overstay</h2>
+  <p>We make Overstay, a free, open-source Mac app that does steps 1 to 4 for you: it lists the leftovers grouped by tool and project, says why each one was listed, asks before it stops anything, stops children before parents, and checks each process again right before it asks it to stop. It is in development and nothing has run on a real Mac yet. <a href="/">Learn more</a>. Overstay is not affiliated with or endorsed by the tools it detects.</p>
+
+  <h2 id="sources">Sources</h2>
+  <ul class="sources">
+    <li>macOS manual pages: <code>ps(1)</code>, <code>kill(1)</code>, <code>lsof(8)</code>. Run <code>man ps</code>, <code>man kill</code> and <code>man lsof</code> in Terminal.</li>
+    <li>Docker: <a href="https://docs.docker.com/reference/cli/docker/container/stop/"><code>docker container stop</code></a></li>
+    <li>Model Context Protocol: <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio">stdio transport and shutdown</a></li>
+  </ul>
+</article>

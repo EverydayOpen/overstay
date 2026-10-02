@@ -1,0 +1,55 @@
+<!--meta {"title": "Is it safe to kill orphaned node processes?", "description": "When stopping an orphaned node process on a Mac is fine and when it is not: what an orphan is, what else shows up as one, a five-question check, and why the gentle signal comes first."}-->
+<article class="read prose guide">
+  <p class="eyebrow"><b>G3</b> · Guide · Checked 2 October 2026 · macOS</p>
+  <h1>Is it safe to kill orphaned node processes?</h1>
+
+  <div class="summary">
+    <h2>The short answer</h2>
+    <p>Often, but "orphaned" is not enough. On a Mac an orphan is a process whose parent is gone and whose parent id is now <code>1</code>. That describes a forgotten tool server, and it also describes a dev server you started in the background on purpose. Check five things first, and use the gentle signal, never <code>kill -9</code>, as your first move.</p>
+  </div>
+
+  <h2 id="orphan">What "orphaned" means</h2>
+  <p>When a process exits, its children keep running: <a href="https://pubs.opengroup.org/onlinepubs/9799919799/functions/_exit.html">terminating a process does not directly terminate its children</a>, and they are adopted by a system process. On macOS that is <code>launchd</code>, process id 1. So an orphan shows <code>PPID 1</code> in <code>ps</code>.</p>
+  <p>The catch is that other processes show <code>PPID 1</code> too: anything you backgrounded with <code>nohup</code> or <code>disown</code> and then closed the terminal on, login items, and services started by a manager. A process with parent <code>1</code> is a candidate, not a verdict.</p>
+
+  <h2 id="check">Five questions before you stop one</h2>
+  <ol class="rules">
+    <li><h3>Is it yours?</h3><p>Same user as you, started from your folders. Never stop system processes or another user's.</p><code>uid</code></li>
+    <li><h3>What is it, exactly?</h3><p>Read the full command, not just <code>node</code>. A package such as <code>@modelcontextprotocol/server-…</code> or a name like <code>mcp-server-…</code> points to a tool server. <code>vite</code>, <code>next dev</code> or <code>webpack-dev-server</code> is your own dev server.</p><code>command</code></li>
+    <li><h3>Is anything using it?</h3><p>If an agent or editor is open in the same project, its servers may be serving it. Check the working folder with <code>lsof -a -d cwd -p &lt;pid&gt;</code>. For a server that listens on a port: <code>lsof -iTCP -sTCP:LISTEN -P -n -a -p &lt;pid&gt;</code>.</p><code>cwd</code></li>
+    <li><h3>Is it doing work?</h3><p>A build, a test run or a migration keeps one process busy. Look at its CPU in Activity Monitor and at how long it has run. Stopping it loses that work.</p><code>CPU</code></li>
+    <li><h3>Does it have children?</h3><p>Stopping a parent leaves its children orphaned in turn. Stop the children first, or list again afterwards.</p><code>ppid</code></li>
+  </ol>
+
+  <h2 id="signals">Gentle first, forceful last</h2>
+  <p><code>kill &lt;pid&gt;</code> sends <code>SIGTERM</code>, a request to quit. Node.js has a default handler for it that <a href="https://nodejs.org/api/process.html#signal-events">exits with code 128 plus the signal number</a>, and a program can install its own handler to close files and connections first. <code>kill -9</code> sends <code>SIGKILL</code>, which <a href="https://nodejs.org/api/process.html#signal-events">cannot have a listener</a>: the process ends at once with no cleanup, so lock files, temporary files and half-written output can stay behind.</p>
+  <p>So: send <code>SIGTERM</code>, wait a few seconds, check with <code>ps -p &lt;pid&gt;</code>, and only then think about <code>SIGKILL</code>.</p>
+
+  <h2 id="table">A quick way to sort them</h2>
+  <div class="summary">
+    <h2>Probably a leftover</h2>
+    <p>Parent <code>1</code>, a tool-server package or name in the command, started days ago, listening on nothing you use, and no agent session open in that project.</p>
+  </div>
+  <div class="summary">
+    <h2>Look closer</h2>
+    <p>Parent <code>1</code> but a generic command (<code>node server.js</code>), started minutes or hours ago, high CPU, or a working folder you recognise from today.</p>
+  </div>
+  <div class="summary">
+    <h2>Leave it alone</h2>
+    <p>Something you started with <code>nohup</code> or <code>pm2</code>, a service you rely on, a database, a language server, anything in a terminal session that is still open, and anything that is not yours.</p>
+  </div>
+
+  <h2 id="lost">What you can lose</h2>
+  <p>A stopped process cannot be brought back. Anything unsaved inside it is lost: a half-finished build, an in-memory dev database, a session an agent was still using. That is why the checks above come first and why there is no safe-to-stop switch you can trust blindly, including ours.</p>
+  <p>Zombies, processes in state <code>Z</code>, are already gone. <code>kill</code> does nothing to them; their parent has to collect them. See <a href="/guides/find-and-stop-leftover-mcp-servers-mac/#zombies">zombies</a>.</p>
+
+  <h2 id="overstay">Doing this with Overstay</h2>
+  <p>We make Overstay, a free, open-source Mac app built around these checks. A process is listed as a leftover only when it is yours, matches a known tool-server signature, has lost its parent, has no live agent session in its project and started at least ten minutes ago. Anything that half fits is a Maybe: shown with the reason, never pre-selected, never in a bulk stop. Each process is checked again right before it is asked to stop, and the gentle signal always comes first. It is in development and nothing has run on a real Mac yet. <a href="/how-it-decides/">How it decides</a>. Overstay is not affiliated with or endorsed by the tools it detects.</p>
+
+  <h2 id="sources">Sources</h2>
+  <ul class="sources">
+    <li>The Open Group, POSIX.1-2024: <a href="https://pubs.opengroup.org/onlinepubs/9799919799/functions/_exit.html"><code>_exit</code></a></li>
+    <li>Node.js: <a href="https://nodejs.org/api/process.html#signal-events">Process, signal events</a> (SIGTERM default handler; SIGKILL cannot have a listener)</li>
+    <li>macOS manual pages: <code>ps(1)</code>, <code>kill(1)</code>, <code>lsof(8)</code></li>
+  </ul>
+</article>

@@ -1,0 +1,105 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "23 4 * * 1"   # Mondays: swift test (incl. the real-system tests) on the current macos-26 image
+
+permissions:
+  contents: read
+
+env:
+  XCODEGEN: "2.46.0"   # checksum-pinned, same pin as release.yml, beta.yml and screens.yml: bump all together
+  XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+
+jobs:
+  # OverstayCore is Foundation-only; on Linux Package.swift defines just the Core targets.
+  core-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container: swift:6.2@sha256:9bea530093ffff8cf6c259991715ee843fe4d0f932e612f7f4b79cca6e00db87   # the compiler BUILD_PLAN targets (Xcode 26 ships Swift 6.2+); digest-pinned, same pin as tools/test_core_docker.sh: bump both together
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # "Must pass with no warnings" (AGENTS.md): a compiler warning anywhere in the log fails the job.
+      - name: Build and test OverstayCore
+        shell: bash
+        run: |
+          set -o pipefail
+          { swift build --target OverstayCore && swift test --filter OverstayCoreTests; } 2>&1 | tee swift.log
+          ! grep -E 'warning:' swift.log
+
+  # Core, Mac and real-system tests (they start OverstayFixture and really signal it), then the universal Release app.
+  macos:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode 26
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app && xcodebuild -version
+
+      - run: swift test
+
+      - name: Generate project (XcodeGen, checksum-pinned)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN/xcodegen.zip"
+          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          test -d "$RUNNER_TEMP/xcodegen/share/xcodegen/SettingPresets"   # without them xcodegen only prints a warning
+          "$RUNNER_TEMP/xcodegen/bin/xcodegen" generate
+
+      - name: Build app (Release, universal, unsigned)
+        run: |
+          xcodebuild -project Overstay.xcodeproj -scheme Overstay -configuration Release \
+            -destination 'generic/platform=macOS' ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
+
+  # Non-blocking early warning against the next SDK. Uses the image's default Xcode.
+  xcode-27:
+    runs-on: xcode-27
+    continue-on-error: true
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: xcodebuild -version && swift test
+      - name: Generate project (XcodeGen, checksum-pinned)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN/xcodegen.zip"
+          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          test -d "$RUNNER_TEMP/xcodegen/share/xcodegen/SettingPresets"
+          "$RUNNER_TEMP/xcodegen/bin/xcodegen" generate
+      - name: Build app
+        run: |
+          xcodebuild -project Overstay.xcodeproj -scheme Overstay -configuration Release \
+            -destination 'generic/platform=macOS' ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
+
+  # The safety rules (docs/BUILD_PLAN.md section 3) and repo checks. GNU grep on Linux: the regexes use \b.
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0   # repo_checks.sh reads every commit's author, committer and message
+          persist-credentials: false
+
+      # One signal file, no shell or child process, processes only, no file contents read, no network, no print.
+      - run: bash tools/safety_greps.sh
+
+      # Home paths, empty Button actions, the Edit menu, commit identity and credit lines.
+      - run: bash tools/repo_checks.sh
+
+      - run: python3 tools/changelog.py --self-test
+      - run: python3 tools/build_site.py --check
+      - run: bash tools/doctor.sh --ci

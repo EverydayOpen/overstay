@@ -1,0 +1,39 @@
+# XcodeGen spec. Run `xcodegen generate` (CI does); the .xcodeproj is never committed.
+name: Overstay
+options:
+  deploymentTarget:
+    macOS: "13.0"   # BUILD_PLAN section 1: MenuBarExtra and ImageRenderer need macOS 13
+packages:
+  Overstay:
+    path: .   # this repo's Package.swift (OverstayCore + OverstayMac). VERIFY: Xcode accepts a local package in the project's own folder (Tirekick does the same).
+targets:
+  Overstay:
+    type: application
+    platform: macOS
+    sources:
+      - App
+    dependencies:
+      - package: Overstay
+        products:
+          - OverstayCore
+          - OverstayMac
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.everydayopen.overstay
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.0"
+        ENABLE_HARDENED_RUNTIME: "YES"
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor   # amber, the one accent
+        GENERATE_INFOPLIST_FILE: "NO"
+        DEAD_CODE_STRIPPING: "YES"
+        # Set directly instead of `info:`/`entitlements:`, which would regenerate (overwrite) these hand-written files.
+        INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/Overstay.entitlements
+schemes:
+  Overstay:
+    build:
+      targets:
+        Overstay: all

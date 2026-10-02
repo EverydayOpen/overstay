@@ -1,0 +1,23 @@
+# {{name}}
+
+> {{tagline}}
+
+{{name}} is a free, open-source Mac app (MIT License; macOS {{minMacOS}} or later, Apple silicon and Intel). It finds the tool servers, headless browsers and helpers that AI coding agents (for example Claude Code and Codex) left running with nothing attached to them, shows how much memory they hold and which project started them, and stops them safely. {{name}} is not affiliated with or endorsed by any of those tools; their names appear only to say what it detects.
+
+Status: {{statusShort}} Nothing has run on a real Mac yet; treat every behaviour described here as the design.
+
+- It reads the process table (memory, parent, start time, working folder, and the scrubbed arguments of your own processes, read in memory to spot agent tools). It asks for no permission.
+- It touches processes, never files. It stops only your own processes, politely first (a gentle signal, children before parents, a short wait), and only after you confirm. A stronger signal is a separate click per group. A stopped process cannot be brought back.
+- A process is a leftover only when it is yours, matches a known tool signature, its parent is gone, no live agent session uses its project and it started at least ten minutes ago. Anything that half fits (an unknown project, a network port, something still writing to its input, a live session, a young process or a generic match) is a Maybe, never part of a bulk stop. Which tool started a group is a best guess until testers confirm it; Cursor, Zed and Windsurf are recognised only as protected hosts.
+- Offline: no network access, no analytics, no accounts, no update check.
+- Every stop is appended to a local activity log with no arguments and no environment.
+- Download: {{baseURL}}/download/
+- Source and support: https://github.com/{{releasesRepo}}
+
+## Pages
+
+{{pageList}}
+
+## Feeds
+
+- [Changelog RSS]({{baseURL}}/feed.xml)
