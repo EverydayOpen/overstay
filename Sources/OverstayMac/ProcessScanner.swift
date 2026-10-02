@@ -28,9 +28,7 @@ public enum ProcessScanner {
     }
 
     /// Parent pid from the basic info alone (cheap), for walking our own ancestry. nil when unreadable.
-    static func ppid(of pid: Int32) -> Int32? {
-        bsdInfo(pid).map { Int32(truncatingIfNeeded: $0.pbi_ppid) }
-    }
+    static func ppid(of pid: Int32) -> Int32? { basic(pid)?.ppid }
 
     // MARK: - reads
 
@@ -45,10 +43,21 @@ public enum ProcessScanner {
         return pids.prefix(Int(got) / MemoryLayout<pid_t>.size).filter { $0 > 0 }
     }
 
-    private static func bsdInfo(_ pid: pid_t) -> proc_bsdinfo? {
-        var info = proc_bsdinfo()
-        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
-        return proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size ? info : nil
+    private struct Basic {
+        var ppid: Int32, pgid: Int32, status: Int32, uid: UInt32, startSeconds: Int64, startMicroseconds: Int32, tdev: UInt32, comm: String
+    }
+
+    /// Identity, parentage and owner of any process, ours or not. sysctl(KERN_PROC_PID) is what ps uses and needs no
+    /// privilege; proc_pidinfo(PROC_PIDTBSDINFO) was refused for launchd on the macos-26 runner (CI run 37054575257). VERIFY
+    private static func basic(_ pid: pid_t) -> Basic? {
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+        var k = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.stride
+        guard sysctl(&mib, UInt32(mib.count), &k, &size, nil, 0) == 0, size == MemoryLayout<kinfo_proc>.stride, k.kp_proc.p_pid == pid else { return nil }
+        return Basic(ppid: k.kp_eproc.e_ppid, pgid: k.kp_eproc.e_pgid, status: Int32(k.kp_proc.p_stat),
+                     uid: k.kp_eproc.e_ucred.cr_uid, startSeconds: Int64(k.kp_proc.p_starttime.tv_sec),
+                     startMicroseconds: Int32(truncatingIfNeeded: k.kp_proc.p_starttime.tv_usec),
+                     tdev: UInt32(bitPattern: k.kp_eproc.e_tdev), comm: cString(&k.kp_proc.p_comm))
     }
 
     private static func pidPath(_ pid: pid_t) -> String {
@@ -73,17 +82,13 @@ public enum ProcessScanner {
     /// `complete` is false for a same-user process whose argv, cwd or footprint the system refused.
     private static func build(_ pid: pid_t, me: uid_t, home: String, cache: inout [String: String?])
         -> (snapshot: ProcessSnapshot, complete: Bool)? {
-        guard var info = bsdInfo(pid) else { return nil }
-        if UInt32(truncatingIfNeeded: info.pbi_status) == 5 { return nil }   // SZOMB (sys/proc.h). VERIFY
+        guard let info = basic(pid) else { return nil }
+        if info.status == 5 { return nil }   // SZOMB (sys/proc.h). VERIFY
         let path = pidPath(pid)
-        var name: String?
-        if path.isEmpty {
-            let long = cString(&info.pbi_name)
-            name = long.isEmpty ? cString(&info.pbi_comm) : long
-        }
-        let uid = UInt32(truncatingIfNeeded: info.pbi_uid)
+        let name = path.isEmpty && !info.comm.isEmpty ? info.comm : nil
+        let uid = info.uid
         let sid = getsid(pid)
-        let tdev = UInt32(truncatingIfNeeded: info.e_tdev)
+        let tdev = info.tdev
 
         var argv: [String] = []
         var markers: [String] = []
@@ -103,10 +108,9 @@ public enum ProcessScanner {
             if let f = MemoryReader.footprint(pid: pid) { footprint = f } else { complete = false }
         }
         let snapshot = ProcessSnapshot(
-            pid: pid, ppid: Int32(truncatingIfNeeded: info.pbi_ppid), pgid: Int32(truncatingIfNeeded: info.pbi_pgid),
+            pid: pid, ppid: info.ppid, pgid: info.pgid,
             sid: sid < 0 ? nil : sid, uid: uid,
-            startSeconds: Int64(truncatingIfNeeded: info.pbi_start_tvsec),
-            startMicroseconds: Int32(truncatingIfNeeded: info.pbi_start_tvusec),
+            startSeconds: info.startSeconds, startMicroseconds: info.startMicroseconds,
             path: path, name: name, argv: argv, cwd: dir, projectRoot: root, footprintBytes: footprint,
             // No controlling tty is NODEV (all ones); 0 is treated the same. VERIFY
             ttyDevice: tdev == 0 || tdev == UInt32.max ? nil : tdev,

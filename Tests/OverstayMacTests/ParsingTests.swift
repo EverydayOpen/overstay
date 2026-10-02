@@ -132,7 +132,7 @@ final class ParsingTests: XCTestCase {
         try makeDir(dir)
         var cache: [String: String?] = [:]
         XCTAssertNil(GitRootFinder.root(forCwd: dir.path, home: base.path, cache: &cache))
-        XCTAssertNotNil(cache[dir.path], "a nil answer is cached as a nil value, not as a missing key")
+        XCTAssertTrue(cache.keys.contains(dir.path), "a nil answer is cached as a nil value, not as a missing key")
     }
 
     func testNeverHomeItselfAndNeverSlash() throws {

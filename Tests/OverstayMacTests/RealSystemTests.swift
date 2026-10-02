@@ -153,6 +153,7 @@ final class RealSystemTests: XCTestCase {
         XCTAssertEqual(Set(raw.processes.map(\.pid)).count, raw.processes.count)
         XCTAssertNotNil(raw.processes.first { $0.pid == getpid() })
         let launchd = raw.processes.first { $0.pid == 1 }
+        XCTAssertNotNil(launchd, "launchd is listed (identity only) even though it is not ours; \(raw.processes.count) processes scanned")
         XCTAssertEqual(launchd?.uid, 0)
         XCTAssertEqual(launchd?.argv, [], "other users' processes carry no argv")
         XCTAssertNil(launchd?.cwd)
@@ -259,7 +260,7 @@ final class RealSystemTests: XCTestCase {
         for _ in 0..<100 {
             fixture = ProcessScanner.snapshot(pid: child.processIdentifier)
             if fixture != nil { break }
-            Thread.sleep(forTimeInterval: 0.1)
+            try await Task.sleep(nanoseconds: 100_000_000)
         }
         let snapshot = try XCTUnwrap(fixture)
         cleanup.append(snapshot.identity)
@@ -341,7 +342,7 @@ final class RealSystemTests: XCTestCase {
         let (id, _) = try spawnOrphan()
         let plan = try ghostPlan(for: id, batch: "t-gone")
         Darwin.kill(id.pid, SIGKILL)   // the test ends it itself, behind the product's back
-        for _ in 0..<50 where !isGone(id) { Thread.sleep(forTimeInterval: 0.1) }
+        for _ in 0..<50 where !isGone(id) { try await Task.sleep(nanoseconds: 100_000_000) }
         let outcome = await runPlan(plan)
         XCTAssertEqual(outcome.results.map(\.status), [.alreadyGone])
         XCTAssertEqual(outcome.stoppedCount, 0)
