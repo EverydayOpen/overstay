@@ -22,6 +22,9 @@ struct OverstayApp: App {
         .windowResizability(.contentMinSize)
         .defaultSize(width: 980, height: 660)
         .commands { OverstayCommands(model: model) }
+        #if DEBUG
+        .demoPresented()
+        #endif
 
         Window("About Overstay", id: "about") {
             AboutView().environmentObject(model)

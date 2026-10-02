@@ -58,6 +58,8 @@ enum Demo {
         return backend
     }
 
+    static var isActive: Bool { setup != nil }
+
     private static var started = false
     @MainActor private static var windows: [NSWindow] = []
 
@@ -196,6 +198,18 @@ enum Demo {
             fatalError("Unknown demo \(what) \(name)")
         }
         return hit
+    }
+}
+
+extension Scene {
+    /// A MenuBarExtra-first app presents no window at launch by itself (VERIFY: the first screens run had none within 30 s),
+    /// and every capture but the share card needs the main one. macOS 15 and later; the capture runners are on 26.
+    @SceneBuilder func demoPresented() -> some Scene {
+        if #available(macOS 15, *) {
+            defaultLaunchBehavior(Demo.isActive ? .presented : .automatic)
+        } else {
+            self
+        }
     }
 }
 #endif
